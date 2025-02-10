@@ -16,8 +16,12 @@ from tensorflow.python.keras.optimizers import Adam
 # Define the directory where your 31 datafiles are stored.
 # (Adjust the path and file extension as needed.)
 data_dir = "./data"
-data_files = glob.glob(os.path.join(data_dir, "*.npy"))
-assert len(data_files) == 31, f"Expected 31 data files but found {len(data_files)}."
+# TODO: Remove when we know what the file structure looks like
+breakpoint()
+print("WE DONT KNOW WHAT THE FILE STRUCTURE LOOKS LIKE")
+file_count = 30
+data_files = glob.glob(os.path.join(data_dir, "*.tbd"))
+assert len(data_files) == file_count, f"Expected {file_count} data files but found {len(data_files)}."
 
 # Placeholder lists to store features and labels.
 # Here we assume each .npy file contains a dictionary with keys 'X' (features) and 'y' (labels).
