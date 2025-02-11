@@ -8,7 +8,6 @@ from tensorflow.python.keras.models import Sequential
 from tensorflow.python.keras.layers import LSTM, Dense, Dropout
 from tensorflow.python.keras.optimizers import Adam
 
-
 # ------------------------------
 # 1. Data Loading and Preprocessing
 # ------------------------------
@@ -17,8 +16,10 @@ from tensorflow.python.keras.optimizers import Adam
 # (Adjust the path and file extension as needed.)
 data_dir = "./data"
 # TODO: Remove when we know what the file structure looks like
+
 breakpoint()
 print("WE DONT KNOW WHAT THE FILE STRUCTURE LOOKS LIKE")
+
 file_count = 30
 data_files = glob.glob(os.path.join(data_dir, "*.tbd"))
 assert len(data_files) == file_count, f"Expected {file_count} data files but found {len(data_files)}."
