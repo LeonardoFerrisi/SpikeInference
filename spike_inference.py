@@ -82,6 +82,36 @@ model = Sequential([
 model.compile(loss='binary_crossentropy', optimizer=Adam(learning_rate=0.001), metrics=['accuracy'])
 model.summary()
 
+
+#------------
+#Daniel's SHitty alt model
+#--------------
+model = Sequential([
+
+    Bidirectional(LSTM(128, return_sequences=True, recurrent_dropout=0.2, kernel_regularizer=l2(0.01)), input_shape=(X_train.shape[1],    X_train.shape[2])),
+    LayerNormalization(),
+    Dropout(0.2),
+
+    Bidirectional(LSTM(64, return_sequences=True, recurrent_dropout=0.2, kernel_regularizer=l2(0.01))),
+    LayerNormalization(),
+    Dropout(0.2),
+
+    Bidirectional(LSTM(32, return_sequences=False, recurrent_dropout=0.2, kernel_regularizer=l2(0.01))),
+    LayerNormalization(),
+    Dropout(0.2),
+
+    Attention(), 
+    LayerNormalization(), 
+
+    Dense(32, activation="relu"), 
+    Dropout(0.2),
+
+    Dense(1, activation='sigmoid')  
+
+])
+
+
+
 # ------------------------------
 # 4. Training the Model
 # ------------------------------
@@ -95,4 +125,28 @@ history = model.fit(
     verbose=1
 )
 
-# Optionally, you might save your model and/or plot training curves here.
+
+#-------------
+#plot stuff
+#-----------
+#Training & Validation Loss
+plt.figure(figsize=(10, 5))
+plt.plot(history.history['loss'], label='Training Loss', color='blue')
+plt.plot(history.history['val_loss'], label='Validation Loss', color='red')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.title('Training & Validation Loss')
+plt.legend()
+plt.grid()
+plt.show()
+
+# Training & Validation Accuracy
+plt.figure(figsize=(10, 5))
+plt.plot(history.history['accuracy'], label='Training Accuracy', color='blue')
+plt.plot(history.history['val_accuracy'], label='Validation Accuracy', color='red')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.title('Training & Validation Accuracy')
+plt.legend()
+plt.grid()
+plt.show()
