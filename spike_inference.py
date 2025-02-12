@@ -5,8 +5,9 @@ from sklearn.model_selection import train_test_split  # For a simple 70/30 split
 # Can also use GroupShuffleSplit if splitting participants into groups
 
 from tensorflow.python.keras.models import Sequential
-from tensorflow.python.keras.layers import LSTM, Dense, Dropout
+from tensorflow.python.keras.layers import Bidirectional, LSTM, Dropout, Dense, LayerNormalization
 from tensorflow.python.keras.optimizers import Adam
+from tensorflow.python.keras.regularizers import l2
 
 # ------------------------------
 # 1. Data Loading and Preprocessing
@@ -86,30 +87,37 @@ model.summary()
 #------------
 #Daniel's SHitty alt model
 #--------------
+
+# Define the model
 model = Sequential([
-
-    Bidirectional(LSTM(128, return_sequences=True, recurrent_dropout=0.2, kernel_regularizer=l2(0.01)), input_shape=(X_train.shape[1],    X_train.shape[2])),
-    LayerNormalization(),
-    Dropout(0.2),
-
-    Bidirectional(LSTM(64, return_sequences=True, recurrent_dropout=0.2, kernel_regularizer=l2(0.01))),
+    
+    Bidirectional(  
+                    LSTM(128, return_sequences = True, recurrent_dropout = 0.2, kernel_regularizer = l2(0.01)), 
+                    input_shape=(X_train.shape[1], X_train.shape[2])
+                ),
     LayerNormalization(),
     Dropout(0.2),
 
-    Bidirectional(LSTM(32, return_sequences=False, recurrent_dropout=0.2, kernel_regularizer=l2(0.01))),
-    LayerNormalization(),
-    Dropout(0.2),
-
-    Attention(), 
-    LayerNormalization(), 
-
-    Dense(32, activation="relu"), 
+    Bidirectional( 
+                    LSTM(64, return_sequences = True, recurrent_dropout = 0.2, kernel_regularizer = l2(0.01))
+                ),
+    LayerNormalization(),
     Dropout(0.2),
 
-    Dense(1, activation='sigmoid')  
+    Bidirectional(
+                    LSTM(32, return_sequences=False, recurrent_dropout=0.2, kernel_regularizer=l2(0.01))
+                ),
+    LayerNormalization(),
+    Dropout(0.2),
 
+    Dense(32, activation="relu"),
+    Dropout(0.2),
+
+    Dense(1, activation='sigmoid')
 ])
 
+# Display model summary
+model.summary()
 
 
 # ------------------------------
