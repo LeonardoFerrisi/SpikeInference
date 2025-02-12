@@ -3,7 +3,7 @@ import glob
 import numpy as np
 from sklearn.model_selection import train_test_split  # For a simple 70/30 split
 # Can also use GroupShuffleSplit if splitting participants into groups
-
+import matplotlib.pyplot as plt
 from tensorflow.python.keras.models import Sequential
 from tensorflow.python.keras.layers import Bidirectional, LSTM, Dropout, Dense, LayerNormalization
 from tensorflow.python.keras.optimizers import Adam
@@ -94,23 +94,23 @@ model = Sequential([
     Bidirectional(  
                     LSTM(128, return_sequences = True, recurrent_dropout = 0.2, kernel_regularizer = l2(0.01)), 
                     input_shape=(X_train.shape[1], X_train.shape[2])
-                ),
+                    ),
     LayerNormalization(),
     Dropout(0.2),
 
     Bidirectional( 
                     LSTM(64, return_sequences = True, recurrent_dropout = 0.2, kernel_regularizer = l2(0.01))
-                ),
+                    ),
     LayerNormalization(),
     Dropout(0.2),
 
     Bidirectional(
                     LSTM(32, return_sequences=False, recurrent_dropout=0.2, kernel_regularizer=l2(0.01))
-                ),
+                    ),
     LayerNormalization(),
     Dropout(0.2),
 
-    Dense(32, activation="relu"),
+    Dense(32, activation="relu"), # Hi Chuck :) pretty cool activation function right?
     Dropout(0.2),
 
     Dense(1, activation='sigmoid')
