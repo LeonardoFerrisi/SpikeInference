@@ -36,9 +36,10 @@ The LSTM model is initially trained on LFP data from the left hippocampus. Its p
     ├── data/                 # Data Directory
     ├── plotting/             # Plots Directory
     ├── utils/                # Utils Directory
-    ├   ├── fft.py                  # Plot a FFT of data (confirm main frequencies)
-    ├   ├── generate_fake_data.py   # Generate LFP and spike data for proof-of-concept
-    ├   └── plot_lfp_data.py        # Plots the generated LFP data and spikes 
+    ├   ├── fft.py                        # Plot a FFT of data (confirm main frequencies)
+    ├   ├── generate_fake_data.py         # Generate LFP and spike data for proof-of-concept
+    ├   ├── data_gen_and_validation.ipynb # Demonstrate Data Gen and Verify signal
+    ├   └── plot_lfp_data.py              # Plots the generated LFP data and spikes 
     ├── README.md             # This file 
     ├── requirements.txt      # Python package requirements 
     ├── spike_inference.py    # for data loading, model training, and evaluation 
