@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Load the CSV data
-df = pd.read_csv("fake_lfp_data.csv")
+df = pd.read_csv("data/fake_lfp_data.csv")
 
 # Clean the column names (if necessary)
 df.columns = df.columns.str.strip().str.lower()

@@ -33,11 +33,17 @@ The LSTM model is initially trained on LFP data from the left hippocampus. Its p
 - **ACC, OFC, and Amygdala:** To test regional generalizability.
 
 ## Repository Structure
-    ├── data/              # Data Directory
-    ├── README.md          # This file 
-    ├── requirements.txt   # Python package requirements 
-    ├── spike_inference.py # for data loading, model training, and evaluation 
-    └── utils.py           # Utility functions 
+    ├── data/                 # Data Directory
+    ├── plotting/             # Plots Directory
+    ├── utils/                # Utils Directory
+    ├   ├── fft.py                  # Plot a FFT of data (confirm main frequencies)
+    ├   ├── generate_fake_data.py   # Generate LFP and spike data for proof-of-concept
+    ├   └── plot_lfp_data.py        # Plots the generated LFP data and spikes 
+    ├── README.md             # This file 
+    ├── requirements.txt      # Python package requirements 
+    ├── spike_inference.py    # for data loading, model training, and evaluation 
+    ├── spike_inference.ipynb # for data loading, model training, and evaluation - but as a python notebook
+    └── utils.py              # Utility functions 
 
 
 ## Setup and Installation
@@ -84,11 +90,22 @@ python spike_inference.py
 - Aggregation: 30 data files are loaded and concatenated to form a comprehensive dataset.
 - Splitting: The dataset is divided into training (70%) and validation (30%) sets using `scikit-learn`'s train_test_split function.
 
-### LSTM
+### BiDirectional LSTM
+
+#### Rationale
+
+We are using a BiDirectional LSTM because it uses information from both before and after regions of interest in data. This perspective makes it more *acausal* in comparison to an LSTM which only works in one direction. *Acausal* here means it doesnt soley rely on past data but also uses future context to improve predictions.
++ This allows it capture patterns that might be missed if only past data was considered
++ Access to future information can help the model better understand the overall structure of the time series
++ The acausal nature means that, during training and inference (when the whole sequence is available), the model can refine its predictions using context from both ends of the sequence.
 
 See (https://www.geeksforgeeks.org/deep-learning-introduction-to-long-short-term-memory/) for more info
 
 ![lstm diagram](assets/lstm.webp)
+
+Here is documentation from the BiDirectional LSTM (https://www.geeksforgeeks.org/bidirectional-lstm-in-nlp/)
+
+![Bidirectional-LSTM](assets/Bidirectional-LSTM-(1).jpg)
 
 ### Training
 
@@ -103,7 +120,5 @@ This README.md provides a comprehensive description of the project’s theory, e
 
 # Project Authors
 - Leonardo Ferrisi
-- Alana M.
-- Daniel F.
-
-(Im sorry folks, I'll spell out the last names in due time it is very late)
+- Daniel Feldman
+- Alana Maluszczak
