@@ -153,6 +153,8 @@ lambda2   = 1.0  # weight for physics (reconstruction) loss
 
 # Training loop
 num_epochs = 5000  # adjust as needed
+loss_values = []
+
 for epoch in range(num_epochs):
     epoch_loss = 0.0  # accumulator for total loss
     for batch_idx, (lfp_input, true_spikes) in enumerate(training_loader):
@@ -185,7 +187,19 @@ for epoch in range(num_epochs):
     # Compute average loss for this epoch
     avg_loss = epoch_loss / len(training_loader.dataset)
     print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {avg_loss:.4f}')
+    loss_values.append(avg_loss)
 
 # -------------------------------
 # End of Script
 # -------------------------------
+import matplotlib.pyplot as plt
+
+# Plot the loss values over epochs
+plt.figure(figsize=(10, 5))
+plt.plot(range(1, num_epochs + 1), loss_values, label='Training Loss')
+plt.xlabel('Epoch')
+plt.ylabel('Loss')
+plt.title('Training Loss over Epochs')
+plt.legend()
+plt.grid(True)
+plt.show()
