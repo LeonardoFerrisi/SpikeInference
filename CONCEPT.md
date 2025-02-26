@@ -10,3 +10,5 @@ We model neuron spikes into a function that takes the action potentials (spiking
 ## Inspiration
 
 - [Dipole characterization of single neurons from their extracellular action potentials](https://pubmed.ncbi.nlm.nih.gov/21667156/)
+- [Biophysically detailed forward modeling of the neural origin of EEG and MEG signals](https://www.sciencedirect.com/science/article/pii/S1053811920309526)
+- https://em.geosci.xyz/content/maxwell1_fundamentals/dipole_sources_in_homogeneous_media/electric_dipole_definition/index.html
