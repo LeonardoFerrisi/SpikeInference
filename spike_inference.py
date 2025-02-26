@@ -174,7 +174,7 @@ def main():
         X_train, y_train,
         validation_data=(X_val, y_val),
         epochs=1,         # Adjust the number of epochs as needed
-        batch_size=1,     # Adjust batch size as needed
+        batch_size=32,     # Adjust batch size as needed
         verbose=1
     )
     
