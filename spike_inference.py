@@ -4,19 +4,38 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
-
 import os
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-
-from keras.models import Sequential
-from keras.layers import Bidirectional, LSTM, Dropout, Dense, LayerNormalization
-from keras.optimizers import Adam
-from keras.regularizers import l2
+import multiprocessing
+import scipy.io as sio
 import time
 
 
+# Set environment variables -----------------------
+# os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 
-import scipy.io as sio
+# Determine the number of CPU cores available
+num_cores = multiprocessing.cpu_count()
+print("Number of CPU cores available:", num_cores)
+
+# Optionally set environment variables to guide thread usage
+os.environ["OMP_NUM_THREADS"] = str(num_cores)
+os.environ["TF_NUM_INTRAOP_THREADS"] = str(num_cores)
+os.environ["TF_NUM_INTEROP_THREADS"] = str(num_cores)
+
+import tensorflow as tf
+from keras.api.models import Sequential
+from keras.api.layers import Bidirectional, LSTM, Dropout, Dense, LayerNormalization
+from keras.api.optimizers import Adam
+from keras.api.regularizers import l2
+
+# Configure TensorFlow to use all CPU cores for both intra- and inter-operation parallelism
+tf.config.threading.set_intra_op_parallelism_threads(num_cores)
+tf.config.threading.set_inter_op_parallelism_threads(num_cores)
+
+print("TensorFlow intra-op threads:", tf.config.threading.get_intra_op_parallelism_threads())
+print("TensorFlow inter-op threads:", tf.config.threading.get_inter_op_parallelism_threads())
+
+# =====================================================================================================
 
 def create_sequences(signal, labels, window_size):
     """
@@ -75,7 +94,6 @@ def main():
     # Where sEEG_df is a 132x4983702 array, where there are 132 channels and 4983702 time points
     
     # Sample Rate of LFP is 1K
-
 
     # The time points are in milliseconds
 
@@ -177,10 +195,13 @@ def main():
         batch_size=32,     # Adjust batch size as needed
         verbose=1
     )
-    
     time_end_training = time.time()
     print(f"Model training time: {time_end_training - time_start_training} seconds")
-
+    # Save the Keras model to an H5 file
+    keras_model_path = "spike_inference_model.h5"
+    model.save(keras_model_path)
+    
+    print(f"Keras model saved to {keras_model_path}")
     # ------------------------------
     # 6. Plotting Training History
     # ------------------------------
