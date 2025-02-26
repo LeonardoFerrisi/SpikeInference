@@ -52,7 +52,7 @@ def main():
     # Get the number of channels and time samples
     sample_rate  = 1000 # 1kHz
     # num_channels = sEEG_df.shape[0]    # Should be 132
-    num_channels = 3 #sEEG_df.shape[0]    # Should be 132
+    num_channels = 100 #sEEG_df.shape[0]    # Should be 132
 
     time_samples = sEEG_df.shape[1]      # ~4,983,702
 
