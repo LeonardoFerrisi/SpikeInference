@@ -118,6 +118,9 @@ Here is documentation from the BiDirectional LSTM (https://www.geeksforgeeks.org
 
 This README.md provides a comprehensive description of the project’s theory, experimental design, algorithms, and step-by-step instructions for setting up and running the code.
 
+## Data Format and Information
+
+See [data info](/data_info.md)
 
 # Project Authors
 - Leonardo Ferrisi
