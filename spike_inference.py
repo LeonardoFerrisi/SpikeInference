@@ -73,13 +73,33 @@ def main():
     # Read the CSV file; expecting columns: 'time', 'lfp', and 'spike'
     sEEG_df = load_data('data/actual_data/try_sEEG_Data.mat', data_key='Data')
     # Where sEEG_df is a 132x4983702 array, where there are 132 channels and 4983702 time points
+    
+    # Sample Rate of LFP is 1K
+
+
     # The time points are in milliseconds
 
-    spikes_df = load_data('data/actual_data/try_spikes_Data.mat', data_key='spikes_data')
-    
+    # Load the spikes data
+    spikes_electrodes_df = load_data('data/actual_data/electrode.mat', data_key='electrode')
+    spikes_spikes_1k_df  = load_data('data/actual_data/spikes_1k.mat', data_key='spikes_1k')
+    spikes_30k_df        = load_data('data/actual_data/spikes_30k.mat', data_key='spikes_30k')
+    spikes_unit_df       = load_data('data/actual_data/unit.mat', data_key='unit')
+    spikes_waveform_df   = load_data('data/actual_data/waveform.mat', data_key='waveform')
 
-    # Merge the two dataframes on the 'time' column
+    # **Where spikes_1k_df is a 132x4983702 array, where there are 132 channels and 4983702 time points
     
+    lfp = sEEG_df.values
+    spikes_times = spikes_spikes_1k_df.values
+    
+    # Create logical array of size (1, lfp.shape[1]) of zeros
+    spikes = np.zeros((1, lfp.shape[1]))
+
+    # For each spike time in spike_times, set that index in spikes to 1
+    for spike_time in spikes_times[0]:
+        spikes[0, spike_time] = 1
+
+    spikes = spikes[0]
+
     # Extract the LFP and spike columns (assuming LFP is our feature and spike is our label)
     # lfp = df['lfp'].values
     # spike = df['spike'].values
@@ -92,7 +112,12 @@ def main():
     
     # Create sequences using the sliding window approach.
     # The label for each sequence is the spike value immediately after the window.
-    X, y = create_sequences(lfp, spike, window_size)
+
+    # For simplicity, we'll use just one channel of LFP data.
+    # use just one channel for lfp
+    lfp_chan_1 = lfp[0, :]
+
+    X, y = create_sequences(lfp_chan_1, spikes, window_size)
     
     # Reshape X to have shape (samples, timesteps, features). In this case, features=1.
     X = X.reshape(-1, window_size, 1)
@@ -148,7 +173,7 @@ def main():
     history = model.fit(
         X_train, y_train,
         validation_data=(X_val, y_val),
-        epochs=50,         # Adjust the number of epochs as needed
+        epochs=10,         # Adjust the number of epochs as needed
         batch_size=64,     # Adjust batch size as needed
         verbose=1
     )
