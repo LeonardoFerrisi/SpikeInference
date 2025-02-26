@@ -197,6 +197,7 @@ def main():
     )
     time_end_training = time.time()
     print(f"Model training time: {time_end_training - time_start_training} seconds")
+    
     # Save the Keras model to an H5 file
     keras_model_path = "spike_inference_model.h5"
     model.save(keras_model_path)
