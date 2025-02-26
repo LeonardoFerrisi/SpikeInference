@@ -4,11 +4,19 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
+
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+
 from keras.models import Sequential
 from keras.layers import Bidirectional, LSTM, Dropout, Dense, LayerNormalization
 from keras.optimizers import Adam
 from keras.regularizers import l2
 import time
+
+
+
+import scipy.io as sio
 
 def create_sequences(signal, labels, window_size):
     """
@@ -21,6 +29,31 @@ def create_sequences(signal, labels, window_size):
         y.append(labels[i + window_size])
     return np.array(X), np.array(y)
 
+def load_data(data_path:str, data_key:str='Data', debug:bool=True) -> pd.DataFrame:
+    """
+    Load data from a .mat file and return the data array as a pandas dataframe.
+
+    @param data_path: Path to the .mat file
+    @param debug: Print debug information
+    @return: Pandas dataframe with the data
+    """
+
+    # Load the .mat file (adjust the filename as needed)
+    mat_contents = sio.loadmat(data_path)
+
+    # List all variable names in the file
+    print(mat_contents.keys())
+
+    # Replace 'data' with the actual variable name stored in your .mat file
+    data_array = mat_contents[data_key]
+
+    # Verify the shape and data type
+    if debug:
+        print("Shape:", data_array.shape)
+        print("Data type:", data_array.dtype)
+
+    return pd.DataFrame(data_array)
+
 def main():
     # ------------------------------
     # 1. Data Loading and Preprocessing
@@ -28,18 +61,28 @@ def main():
     # Change the data_dir and filename as needed.
     data_dir = "./data"
     filename = "fake_lfp_data.csv"  # CSV file generated previously
+
+ 
     data_path = os.path.join(data_dir, filename)
     
     if not os.path.exists(data_path):
         print(f"Data file {data_path} not found. Please ensure the CSV exists.")
         return
 
+
     # Read the CSV file; expecting columns: 'time', 'lfp', and 'spike'
-    df = pd.read_csv(data_path)
+    sEEG_df = load_data('data/actual_data/try_sEEG_Data.mat', data_key='Data')
+    # Where sEEG_df is a 132x4983702 array, where there are 132 channels and 4983702 time points
+    # The time points are in milliseconds
+
+    spikes_df = load_data('data/actual_data/try_spikes_Data.mat', data_key='spikes_data')
+    
+
+    # Merge the two dataframes on the 'time' column
     
     # Extract the LFP and spike columns (assuming LFP is our feature and spike is our label)
-    lfp = df['lfp'].values
-    spike = df['spike'].values
+    # lfp = df['lfp'].values
+    # spike = df['spike'].values
     
     # ------------------------------
     # 2. Creating Sequences for the LSTM
