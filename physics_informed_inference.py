@@ -110,6 +110,56 @@ class LFPtoSpikeNet(nn.Module):
 model = LFPtoSpikeNet()
 model.train()
 
+
+# -------------------------------
+# Step 4: Define the Inversion Network (CNN) Architecture -- modular
+# -------------------------------
+class LFPtoSpikeNet(nn.Module):
+    def __init__(self):
+        super(LFPtoSpikeNet, self).__init__()
+        # Simple CNN with two 1D convolutional layers
+        self.block1 = nn.sequential(
+            nn.Conv1d(in_channels=1, out_channels=16, kernel_size=5, padding=2)
+            nn.BatchNorm1d(out_channels=16)
+            nn.ReLU(inplace = True)
+        )
+        self.block2 = nn.sequential(
+            nn.Conv1d(in_channels=16, out_channels=16, kernel_size=5, padding=2)
+            nn.BatchNorm1d(out_channels=16)
+            nn.ReLU(inplace = True)
+        )
+        self.block3 = nn.sequential(
+            nn.Conv1d(in_channels=16, out_channels=1, kernel_size=5, padding=2)
+            nn.BatchNorm1d(out_channels=1)
+            nn.ReLU(inplace = True)
+        )
+        self.classifier = nn.Sequential(
+            nn.Dropout(0.5),
+            nn.Linear(???, 4096),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5),
+            nn.Linear(4096, 1024),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.5),
+            nn.Linear(1024, 1)
+            nn.Softmax(dim=1)
+        )
+        
+    
+    def forward(self, x):
+        # x: (batch_size, 1, time_steps)
+        x = self.block1(x)
+        x = self.block2(x)
+        x = self.block3(x)
+        x = self.classifier(x)
+
+        return x
+
+# Instantiate the model and set to training mode
+model = LFPtoSpikeNet()
+model.train()
+
+
 # -------------------------------
 # Step 5: Define the Physics-Informed Loss Function and Training Loop
 # -------------------------------
