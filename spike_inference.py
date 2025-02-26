@@ -173,8 +173,8 @@ def main():
     history = model.fit(
         X_train, y_train,
         validation_data=(X_val, y_val),
-        epochs=10,         # Adjust the number of epochs as needed
-        batch_size=64,     # Adjust batch size as needed
+        epochs=1,         # Adjust the number of epochs as needed
+        batch_size=1,     # Adjust batch size as needed
         verbose=1
     )
     
