@@ -27,6 +27,7 @@ from keras.api.models import Sequential
 from keras.api.layers import Bidirectional, LSTM, Dropout, Dense, LayerNormalization
 from keras.api.optimizers import Adam
 from keras.api.regularizers import l2
+from scipy.ndimage import gaussian_filter1d
 
 # Configure TensorFlow to use all CPU cores for both intra- and inter-operation parallelism
 tf.config.threading.set_intra_op_parallelism_threads(num_cores)
@@ -68,60 +69,80 @@ def load_data(data_path:str, data_key:str='Data', debug:bool=True) -> pd.DataFra
 
     # Verify the shape and data type
     if debug:
+        print("Data loaded from:", data_path)
         print("Shape:", data_array.shape)
         print("Data type:", data_array.dtype)
+        print("------------------------------")
 
     return pd.DataFrame(data_array)
+
+def get_spike_firing_rate(spikes:pd.DataFrame, window_size:int|float, debug_plot:bool=False) -> pd.DataFrame:
+    """
+    Calculate the spike firing rate from the binary spike array.
+
+    @param spikes: Binary array of spike events (0 or 1)
+    @param window_size: Size of the window to use for the convolution
+    @return: Spike firing rate array
+    """
+    std = window_size // 2.0 # std deviation of the gaussian
+    spike_firing_rate = gaussian_filter1d(spikes, truncate=2.0, sigma=std)
+
+    if debug_plot: 
+        fig, axs = plt.subplots(2, 1, figsize=(15, 10), sharex=True)
+
+        # Plot the spike firing rate
+        axs[0].plot(spike_firing_rate, color='blue')
+        axs[0].set_title('Spike Firing Rate')
+        axs[0].set_ylabel('Firing Rate')
+        axs[0].grid()
+
+        # Plot the spikes
+        axs[1].plot(spikes, color='red')
+        axs[1].set_title('Spikes')
+        axs[1].set_xlabel('Time (ms)')
+        axs[1].set_ylabel('Spikes')
+        axs[1].grid()
+
+        plt.tight_layout()
+        plt.show()
+    
+    return spike_firing_rate
 
 def main():
     # ------------------------------
     # 1. Data Loading and Preprocessing
     # ------------------------------
-    # Change the data_dir and filename as needed.
-    data_dir = "./data"
-    filename = "fake_lfp_data.csv"  # CSV file generated previously
-
- 
-    data_path = os.path.join(data_dir, filename)
-    
-    if not os.path.exists(data_path):
-        print(f"Data file {data_path} not found. Please ensure the CSV exists.")
-        return
-
-
-    # Read the CSV file; expecting columns: 'time', 'lfp', and 'spike'
-    sEEG_df = load_data('data/actual_data/try_sEEG_Data.mat', data_key='Data')
-    # Where sEEG_df is a 132x4983702 array, where there are 132 channels and 4983702 time points
-    
-    # Sample Rate of LFP is 1K
-
-    # The time points are in milliseconds
-
     # Load the spikes data
     spikes_electrodes_df = load_data('data/actual_data/electrode.mat', data_key='electrode')
-    spikes_spikes_1k_df  = load_data('data/actual_data/spikes_1k.mat', data_key='spikes_1k')
+    spikes_1k_df  = load_data('data/actual_data/spikes_1k.mat', data_key='spikes_1k')
+    # **Where spikes_1k_df is a 132x4983702 array, where there are 132 channels and 4983702 time points
+
     spikes_30k_df        = load_data('data/actual_data/spikes_30k.mat', data_key='spikes_30k')
     spikes_unit_df       = load_data('data/actual_data/unit.mat', data_key='unit')
     spikes_waveform_df   = load_data('data/actual_data/waveform.mat', data_key='waveform')
+    sEEG_df              = load_data('data/actual_data/try_sEEG_Data.mat', data_key='Data')
 
-    # **Where spikes_1k_df is a 132x4983702 array, where there are 132 channels and 4983702 time points
-    
-    lfp = sEEG_df.values
-    spikes_times = spikes_spikes_1k_df.values
-    
+    # Convert spike_times into a gaussian firing rate ---------------------------
+    spikes_times = spikes_1k_df.values[0]
+
     # Create logical array of size (1, lfp.shape[1]) of zeros
-    spikes = np.zeros((1, lfp.shape[1]))
+    ms_buffer = 1000 # 1 s buffer after last timestamp
+    spikes = np.zeros(max(spikes_times)+1000)
 
     # For each spike time in spike_times, set that index in spikes to 1
-    for spike_time in spikes_times[0]:
-        spikes[0, spike_time] = 1
-
-    spikes = spikes[0]
-
-    # Extract the LFP and spike columns (assuming LFP is our feature and spike is our label)
-    # lfp = df['lfp'].values
-    # spike = df['spike'].values
+    for spike_time in spikes_times:
+        spikes[spike_time] = 1
     
+    spikes_firing_rate = get_spike_firing_rate(spikes, window_size=100, debug_plot=False)
+
+    # Handle LFP
+    # Where sEEG_df is a 132x4983702 array, where there are 132 channels and 4983702 time points
+    # Sample Rate of LFP is 1kHz
+    # The time points are in milliseconds
+
+    # Get LFP and spike data
+    lfp = sEEG_df.values
+        
     # ------------------------------
     # 2. Creating Sequences for the LSTM
     # ------------------------------
