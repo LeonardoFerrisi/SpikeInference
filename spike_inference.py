@@ -165,10 +165,13 @@ def main(debug:bool=False):
     spikes = spikes_firing_rate.astype(np.float32) # convert to float32 for memory efficiency
 
      # Take only a subset of data for initial testing
-    max_samples = 500000  # Start with a smaller dataset for testing
+    # max_samples = 500000  # Start with a smaller dataset for testing
+    max_samples = lfp.shape[1]  # Start with a smaller dataset for testing
+
     num_channels = 2 # Number of channels to use for testing, max of 132
 
     lfp = sEEG_df.values[:num_channels, :max_samples].astype(np.float32)
+
     spikes = spikes_firing_rate[:max_samples].astype(np.float32)
             
     # ------------------------------
@@ -251,7 +254,17 @@ def main(debug:bool=False):
     print(f"Model training time: {time_end_training - time_start_training} seconds")
     
     # Save the Keras model to an H5 file
-    keras_model_path = "spike_inference_model.h5"
+    # Create a timestamp string for the model filename
+    from datetime import datetime
+    import os
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+
+    # Create models directory if it doesn't exist
+    os.makedirs("models", exist_ok=True)
+
+    # Save model with timestamp in filename
+    keras_model_path = f"models/spike_inference_model_{timestamp}.h5"
+
     model.save(keras_model_path)
     
     print(f"Keras model saved to {keras_model_path}")
