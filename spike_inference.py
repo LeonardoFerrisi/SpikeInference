@@ -2,52 +2,72 @@
 import os
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import train_test_split
-import matplotlib.pyplot as plt
-import os
 import multiprocessing
 import scipy.io as sio
 import time
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from scipy.ndimage import gaussian_filter1d
 
-
-# Set environment variables -----------------------
-# os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+# -------------------- Set Environment Variables --------------------
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"  # Disable oneDNN optimizations (optional)
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # Suppress unnecessary TensorFlow logs
 
 # Determine the number of CPU cores available
 num_cores = multiprocessing.cpu_count()
 print("Number of CPU cores available:", num_cores)
 
-# Optionally set environment variables to guide thread usage
+# Set CPU parallelism
 os.environ["OMP_NUM_THREADS"] = str(num_cores)
 os.environ["TF_NUM_INTRAOP_THREADS"] = str(num_cores)
 os.environ["TF_NUM_INTEROP_THREADS"] = str(num_cores)
 
+# -------------------- TensorFlow GPU Setup --------------------
 import tensorflow as tf
 from keras.api.models import Sequential
-from keras.api.layers import Bidirectional, LSTM, Dropout, Dense, LayerNormalization
+from keras.api.layers import (
+    Bidirectional, LSTM, Dropout, Dense, LayerNormalization
+)
 from keras.api.optimizers import Adam
 from keras.api.regularizers import l2
-from scipy.ndimage import gaussian_filter1d
+from alive_progress import alive_bar
 
-# Configure TensorFlow to use all CPU cores for both intra- and inter-operation parallelism
-tf.config.threading.set_intra_op_parallelism_threads(num_cores)
-tf.config.threading.set_inter_op_parallelism_threads(num_cores)
+# Check for available GPUs
+gpus = tf.config.list_physical_devices("GPU")
+if gpus:
+    try:
+        # Enable memory growth to prevent TensorFlow from consuming all GPU memory
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        print(f"Using GPU: {gpus}")
+    except RuntimeError as e:
+        print(f"GPU setup error: {e}")
+else:
+    print("No GPU found, using CPU.")
 
+# -------------------- Confirm TensorFlow Setup --------------------
+print("TensorFlow version:", tf.__version__)
+print("Num GPUs Available:", len(tf.config.list_physical_devices('GPU')))
 print("TensorFlow intra-op threads:", tf.config.threading.get_intra_op_parallelism_threads())
 print("TensorFlow inter-op threads:", tf.config.threading.get_inter_op_parallelism_threads())
 
 # =====================================================================================================
 
-def create_sequences(signal, labels, window_size):
+def create_sequences(signal, labels, window_size, batch_size=10000):
     """
     Create sequences from the 1D time series signal.
     For each window of LFP data, the label is the spike value at the time immediately after the window.
     """
-    X, y = [], []
-    for i in range(len(signal) - window_size):
-        X.append(signal[i : i + window_size])
-        y.append(labels[i + window_size])
-    return np.array(X), np.array(y)
+    num_samples = signal.shape[1] - window_size
+    X = np.memmap('X_data.dat', dtype=np.float32, mode='w+', shape=(num_samples, window_size, signal.shape[0]))
+    y = np.memmap('y_data.dat', dtype=np.float32, mode='w+', shape=(num_samples,))
+    # X, y = [], []
+    with alive_bar(num_samples, title="Creating sequences") as bar:
+        for i in range(num_samples):
+            X[i] = np.transpose(signal[:, i : i + window_size])  # Transpose to match shape (timesteps, channels)
+            y[i] = labels[i + window_size]  # Label is the spike immediately after the window
+            bar()
+    return X, y
 
 def load_data(data_path:str, data_key:str='Data', debug:bool=True) -> pd.DataFrame:
     """
@@ -108,77 +128,88 @@ def get_spike_firing_rate(spikes:pd.DataFrame, window_size:int|float, debug_plot
     
     return spike_firing_rate
 
-def main():
+def main(debug:bool=False):
     # ------------------------------
     # 1. Data Loading and Preprocessing
     # ------------------------------
-    # Load the spikes data
+    #   Load the spikes data
     spikes_electrodes_df = load_data('data/actual_data/electrode.mat', data_key='electrode')
     spikes_1k_df  = load_data('data/actual_data/spikes_1k.mat', data_key='spikes_1k')
-    # **Where spikes_1k_df is a 132x4983702 array, where there are 132 channels and 4983702 time points
+    #   **Where spikes_1k_df is a 132x4983702 array, where there are 132 channels and 4983702 time points
 
     spikes_30k_df        = load_data('data/actual_data/spikes_30k.mat', data_key='spikes_30k')
     spikes_unit_df       = load_data('data/actual_data/unit.mat', data_key='unit')
     spikes_waveform_df   = load_data('data/actual_data/waveform.mat', data_key='waveform')
     sEEG_df              = load_data('data/actual_data/try_sEEG_Data.mat', data_key='Data')
 
-    # Convert spike_times into a gaussian firing rate ---------------------------
+    #   Convert spike_times into a gaussian firing rate ---------------------------
     spikes_times = spikes_1k_df.values[0]
 
-    # Create logical array of size (1, lfp.shape[1]) of zeros
+    #   Create logical array of size (1, lfp.shape[1]) of zeros
     ms_buffer = 1000 # 1 s buffer after last timestamp
     spikes = np.zeros(max(spikes_times)+1000)
 
-    # For each spike time in spike_times, set that index in spikes to 1
+    #   For each spike time in spike_times, set that index in spikes to 1
     for spike_time in spikes_times:
         spikes[spike_time] = 1
     
     spikes_firing_rate = get_spike_firing_rate(spikes, window_size=100, debug_plot=False)
 
-    # Handle LFP
-    # Where sEEG_df is a 132x4983702 array, where there are 132 channels and 4983702 time points
-    # Sample Rate of LFP is 1kHz
-    # The time points are in milliseconds
+    #   Handle LFP
+    #   Where sEEG_df is a 132x4983702 array, where there are 132 channels and 4983702 time points
+    #   Sample Rate of LFP is 1kHz
+    #   The time points are in milliseconds
 
     # Get LFP and spike data
-    lfp = sEEG_df.values
-        
+    lfp = sEEG_df.values.astype(np.float32) # convert to float32 for memory efficiency
+    spikes = spikes_firing_rate.astype(np.float32) # convert to float32 for memory efficiency
+
+     # Take only a subset of data for initial testing
+    max_samples = 500000  # Start with a smaller dataset for testing
+    num_channels = 2 # Number of channels to use for testing, max of 132
+
+    lfp = sEEG_df.values[:num_channels, :max_samples].astype(np.float32)
+    spikes = spikes_firing_rate[:max_samples].astype(np.float32)
+            
     # ------------------------------
     # 2. Creating Sequences for the LSTM
     # ------------------------------
-    # Define a window size (number of timesteps per sample)
-    window_size = 100  # You can adjust this based on your sampling rate & desired context
+    #   Define a window size (number of timesteps per sample)
+    window_size = 1  # 50 ms of context
     
-    # Create sequences using the sliding window approach.
-    # The label for each sequence is the spike value immediately after the window.
-
-    # For simplicity, we'll use just one channel of LFP data.
-    # use just one channel for lfp
-    lfp_chan_1 = lfp[0, :]
-
-    X, y = create_sequences(lfp_chan_1, spikes, window_size)
+    #   Create sequences from the LFP and spike data
+    X, y = create_sequences(lfp, spikes, window_size)
     
     # Reshape X to have shape (samples, timesteps, features). In this case, features=1.
-    X = X.reshape(-1, window_size, 1)
-    
-    print("Data shapes:")
-    print("X:", X.shape)
-    print("y:", y.shape)
-    
+
+    if debug:
+        print("Before reshaping:")
+        print(f"X shape: {X.shape}, Expected: (num_samples, {window_size}, {num_channels})")
+        print(f"y shape: {y.shape}, Expected: (num_samples,)")
+
+    X = X.reshape(-1, window_size, num_channels)
+
+    if debug:
+        print("After reshaping:")
+        print(f"X shape: {X.shape}")
+        print(f"y shape: {y.shape}")
+
+   
     # ------------------------------
     # 3. Splitting the Dataset: 70% Training, 30% Validation
     # ------------------------------
     X_train, X_val, y_train, y_val = train_test_split(
         X, y, test_size=0.3, random_state=42
     )
-    
-    print(f"Training set shape: X_train={X_train.shape}, y_train={y_train.shape}")
-    print(f"Validation set shape: X_val={X_val.shape}, y_val={y_val.shape}")
-    
+
+    if debug:
+        print(f"Training set shape: X_train={X_train.shape}, y_train={y_train.shape}")
+        print(f"Validation set shape: X_val={X_val.shape}, y_val={y_val.shape}")
+                
     # ------------------------------
     # 4. Building the Bidirectional LSTM Model
     # ------------------------------
-    input_timesteps = X_train.shape[1]
+    input_timesteps = X_train.shape[1] # Where X is num_samples, timesteps, num_features
     input_features = X_train.shape[2]
     
     model = Sequential([
@@ -212,7 +243,7 @@ def main():
     history = model.fit(
         X_train, y_train,
         validation_data=(X_val, y_val),
-        epochs=1,         # Adjust the number of epochs as needed
+        epochs=10,         # Adjust the number of epochs as needed
         batch_size=32,     # Adjust batch size as needed
         verbose=1
     )
@@ -250,4 +281,4 @@ def main():
     plt.show()
 
 if __name__ == "__main__":
-    main()
+    main(debug=True)
