@@ -34,5 +34,5 @@ Data is stored within the `data` folder in the following format
 
 # IMPORTANT
 
-Data is not accessible publically. Please contact Leonardo.Ferrisi@utah.edu for further info.
+Data is not accessible for public access. Please contact Leonardo.Ferrisi@utah.edu for further info.
                 

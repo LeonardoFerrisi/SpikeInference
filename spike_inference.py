@@ -173,22 +173,29 @@ def rmse(y_true, y_pred):
     """
     return tf.math.sqrt(tf.reduce_mean(tf.square(y_pred - y_true)))
 
-def spike_inference(spikes_file, lfp_file, region='NA', debug:bool=False):
+def spike_inference(spikes_file, lfp_file, lfp_key='Data', spikes_key='spikes_1k', region='NA', debug:bool=False, render_logo=False):
+
+    if render_logo: from qol import render_logo; render_logo()
+
     # ------------------------------
     # 1. Data Loading and Preprocessing
     # ------------------------------
     #   Load the spikes data
-    spikes_1k_df  = load_data(spikes_file, data_key='spikes_1k')
+    if debug: print("------------------------------------\nLoading data:\n")
+    spikes_1k_df  = load_data(spikes_file, data_key=spikes_key)
     #   **Where spikes_1k_df is a 132x4983702 array, where there are 132 channels and 4983702 time points
 
-    sEEG_df       = load_data(lfp_file, data_key='Data')
+    sEEG_df       = load_data(lfp_file, data_key=lfp_key)
 
     #   Convert spike_times into a gaussian firing rate ---------------------------
     spikes_times = spikes_1k_df.values[0]
 
     #   Create logical array of size (1, lfp.shape[1]) of zeros
-    ms_buffer = 10000 # 1 s buffer after last timestamp
-    spikes = np.zeros(max(spikes_times)+1000)
+    ms_buffer = 10 # 0 ms buffer after last timestamp
+
+    spikes_times = np.round(spikes_times).astype(np.int32) # Convert to int for indexing
+
+    spikes = np.zeros(max(spikes_times) + ms_buffer)
 
     #   For each spike time in spike_times, set that index in spikes to 1
     for spike_time in spikes_times:
@@ -196,6 +203,7 @@ def spike_inference(spikes_file, lfp_file, region='NA', debug:bool=False):
     
     spikes_firing_rate = get_spike_firing_rate(spikes, window_size=100, debug_plot=False)
 
+    if debug: print("------------------------------------\n")
 
     # ------------------------------
     # 2. Standardize Signals
@@ -365,4 +373,6 @@ def spike_inference(spikes_file, lfp_file, region='NA', debug:bool=False):
     plt.show()
 
 if __name__ == "__main__":
-    spike_inference(spikes_file='data/actual_data/patient1/spike_times_set1_1k.mat', lfp_file='data/actual_data/patient1/try_sEEG_Data.mat', region='NA', debug=True)
+    spike_inference(spikes_file='data/actual_data/patient1/spike_times_set1_1k.mat', spikes_key='spike_times_set1_1k',
+                    lfp_file='data/actual_data/patient1/try_sEEG_Data.mat', lfp_key='Data',
+                    region='NA', debug=True, render_logo=True)
