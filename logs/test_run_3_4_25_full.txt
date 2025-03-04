@@ -1,0 +1,100 @@
+python .\spike_inference.py
+2025-03-04 03:16:12.717256: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2025-03-04 03:16:14.246047: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+Number of CPU cores available: 16
+No GPU found, using CPU.
+TensorFlow version: 2.18.0
+Num GPUs Available: 0
+TensorFlow intra-op threads: 0
+TensorFlow inter-op threads: 0
+
+ _____       _ _       _____       __
+/  ___|     (_) |     |_   _|     / _|
+\ `--. _ __  _| | _____ | | _ __ | |_ ___ _ __ ___ _ __   ___ ___
+ `--. \ '_ \| | |/ / _ \| || '_ \|  _/ _ \ '__/ _ \ '_ \ / __/ _ \
+/\__/ / |_) | |   <  __/| || | | | ||  __/ | |  __/ | | | (_|  __/
+\____/| .__/|_|_|\_\___\___/_| |_|_| \___|_|  \___|_| |_|\___\___|
+      | |
+      |_|
+
+------------------------------------
+Loading data:
+
+dict_keys(['__header__', '__version__', '__globals__', 'spike_times_set1_1k'])
+Data loaded from: data/actual_data/patient1/spike_times_set1_1k.mat
+Shape: (1, 169515)
+Data type: float64
+------------------------------
+dict_keys(['__header__', '__version__', '__globals__', 'Data'])
+Data loaded from: data/actual_data/patient1/try_sEEG_Data.mat
+Shape: (132, 4983702)
+Data type: int16
+------------------------------
+------------------------------------
+
+Creating sequences |████████████████████████████████████████| 4983652/4983652 [1
+Before reshaping:
+X shape: (4983652, 50, 1), Expected: (num_samples, 50, 1)
+y shape: (4983652,), Expected: (num_samples,)
+After reshaping:
+X shape: (4983652, 50, 1)
+y shape: (4983652,)
+Training set shape: X_train=(3488556, 50, 1), y_train=(3488556,)
+Validation set shape: X_val=(1495096, 50, 1), y_val=(1495096,)
+2025-03-04 03:17:02.141655: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+C:\Users\PRISM\Documents\CourseSoftware\SpikeInference\.venv\Lib\site-packages\keras\src\layers\rnn\bidirectional.py:107: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+Model: "sequential"
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)                         ┃ Output Shape                ┃         Param # ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━┩
+│ bidirectional (Bidirectional)        │ (None, 50, 128)             │          33,792 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ layer_normalization                  │ (None, 50, 128)             │             256 │
+│ (LayerNormalization)                 │                             │                 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dropout (Dropout)                    │ (None, 50, 128)             │               0 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ bidirectional_1 (Bidirectional)      │ (None, 64)                  │          41,216 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ layer_normalization_1                │ (None, 64)                  │             128 │
+│ (LayerNormalization)                 │                             │                 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dropout_1 (Dropout)                  │ (None, 64)                  │               0 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense (Dense)                        │ (None, 1)                   │              65 │
+└──────────────────────────────────────┴─────────────────────────────┴─────────────────┘
+... model logging was cut off
+
+Epoch 3/10
+109018/109018 ━━━━━━━━━━━━━━━━━━━━ 4377s 40ms/step - loss: 0.9879 - mae: 0.2714 - mse: 0.9879 - r_squared: -1.0000 - rmse: 0.6609 - val_loss: 1.0088 - val_mae: 0.2963 - val_mse: 1.0088 - val_r_squared: -1.0000 - val_rmse: 0.6663
+Epoch 4/10
+109018/109018 ━━━━━━━━━━━━━━━━━━━━ 4489s 41ms/step - loss: 0.9941 - mae: 0.2778 - mse: 0.9941 - r_squared: -1.0000 - rmse: 0.6556 - val_loss: 1.0043 - val_mae: 0.2781 - val_mse: 1.0043 - val_r_squared: -1.0000 - val_rmse: 0.6670
+Epoch 5/10
+109018/109018 ━━━━━━━━━━━━━━━━━━━━ 4491s 41ms/step - loss: 0.9840 - mae: 0.2736 - mse: 0.9840 - r_squared: -1.0000 - rmse: 0.6546 - val_loss: 1.0109 - val_mae: 0.2896 - val_mse: 1.0109 - val_r_squared: -1.0000 - val_rmse: 0.6599
+Epoch 6/10
+109018/109018 ━━━━━━━━━━━━━━━━━━━━ 4447s 41ms/step - loss: 0.9921 - mae: 0.2814 - mse: 0.9921 - r_squared: -1.0000 - rmse: 0.6555 - val_loss: 1.0109 - val_mae: 0.2878 - val_mse: 1.0109 - val_r_squared: -1.0000 - val_rmse: 0.6607
+Epoch 7/10
+109018/109018 ━━━━━━━━━━━━━━━━━━━━ 4368s 40ms/step - loss: 0.9888 - mae: 0.2750 - mse: 0.9888 - r_squared: -1.0000 - rmse: 0.6556 - val_loss: 1.0049 - val_mae: 0.2846 - val_mse: 1.0049 - val_r_squared: -1.0000 - val_rmse: 0.6673
+Epoch 8/10
+109018/109018 ━━━━━━━━━━━━━━━━━━━━ 4347s 40ms/step - loss: 0.9883 - mae: 0.2704 - mse: 0.9883 - r_squared: -1.0000 - rmse: 0.6597 - val_loss: 1.0054 - val_mae: 0.2565 - val_mse: 1.0054 - val_r_squared: -1.0000 - val_rmse: 0.6577
+Epoch 9/10
+109018/109018 ━━━━━━━━━━━━━━━━━━━━ 4495s 41ms/step - loss: 0.9877 - mae: 0.2724 - mse: 0.9877 - r_squared: -1.0000 - rmse: 0.6573 - val_loss: 1.0080 - val_mae: 0.3087 - val_mse: 1.0080 - val_r_squared: -1.0000 - val_rmse: 0.6766
+Epoch 10/10
+109018/109018 ━━━━━━━━━━━━━━━━━━━━ 4674s 43ms/step - loss: 0.9932 - mae: 0.2745 - mse: 0.9932 - r_squared: -1.0000 - rmse: 0.6588 - val_loss: 1.0162 - val_mae: 0.2356 - val_mse: 1.0162 - val_r_squared: -1.0000 - val_rmse: 0.6434
+Model training time: 44146.87968254089 seconds
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+Keras model saved to models/spike_inference_model_20250304_1532.h5
+Deleted X_data.dat
+Deleted y_data.dat
+
+===== MODEL EVALUATION =====
+Validation Loss (MSE): 1.0162
+Validation RMSE: 0.6434
+Validation R²: -1.0000
+Validation MAE: 0.2356
+46722/46722 ━━━━━━━━━━━━━━━━━━━━ 556s 12ms/step
+Predictions within 0.5 std dev of true values: 94.26%
+Predictions within 1.0 std dev of true values: 97.07%
+Predictions within 2.0 std dev of true values: 98.47%
