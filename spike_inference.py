@@ -191,7 +191,7 @@ def spike_inference(spikes_file, lfp_file, lfp_key='Data', spikes_key='spikes_1k
     spikes_times = spikes_1k_df.values[0]
 
     #   Create logical array of size (1, lfp.shape[1]) of zeros
-    ms_buffer = 10 # 0 ms buffer after last timestamp
+    ms_buffer = 1000 # 1s buffer after last timestamp
 
     spikes_times = np.round(spikes_times).astype(np.int32) # Convert to int for indexing
 
@@ -211,8 +211,8 @@ def spike_inference(spikes_file, lfp_file, lfp_key='Data', spikes_key='spikes_1k
     # Handle LFP
     # sEEG_df is a 132x4983702 array, where each row is a channel and each column is a time point.
     # For initial testing, use only a subset of the data.
-    # max_samples = sEEG_df.shape[1]
-    max_samples = 9000  # Use a subset of samples for testing
+    max_samples = sEEG_df.shape[1]
+    # max_samples = 9000  # Use a subset of samples for testing
     num_channels = 1  # Use a subset of channels for testing (max of 132)
 
     # TODO: UPDATE: We dont actually know which is the nearest LFP sEEG contact point on the electrode. Using the first one for now...
