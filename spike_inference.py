@@ -6,8 +6,12 @@ import multiprocessing
 import scipy.io as sio
 import time
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
 from scipy.ndimage import gaussian_filter1d
+import sklearn as sk
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from scipy.ndimage import gaussian_filter1d
+from accuracy_metrics import threshold_accuracy, r_squared
 
 # -------------------- Set Environment Variables --------------------
 os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"  # Disable oneDNN optimizations (optional)
@@ -29,6 +33,7 @@ from keras.api.layers import (
     Bidirectional, LSTM, Dropout, Dense, LayerNormalization
 )
 from keras.api.optimizers import Adam
+import keras.api.backend as K
 from keras.api.regularizers import l2
 from alive_progress import alive_bar
 
@@ -128,6 +133,46 @@ def get_spike_firing_rate(spikes:pd.DataFrame, window_size:int|float, debug_plot
     
     return spike_firing_rate
 
+def clean_up_memmap_files(X_memmap, y_memmap, delete_files=True):
+    """
+    Clean up memory-mapped files.
+    
+    Parameters:
+    X_memmap: The memory-mapped X data
+    y_memmap: The memory-mapped y data
+    delete_files: Whether to delete the underlying files from disk
+    """
+    # Close the memmap objects to ensure all changes are written to disk
+    if hasattr(X_memmap, '_mmap') and X_memmap._mmap is not None:
+        X_memmap._mmap.close()
+    
+    if hasattr(y_memmap, '_mmap') and y_memmap._mmap is not None:
+        y_memmap._mmap.close()
+    
+    # Delete the files if requested
+    if delete_files:
+        import os
+        if os.path.exists('X_data.dat'):
+            os.remove('X_data.dat')
+            print("Deleted X_data.dat")
+        
+        if os.path.exists('y_data.dat'):
+            os.remove('y_data.dat')
+            print("Deleted y_data.dat")
+
+def rmse(y_true, y_pred):
+    """
+    Calculates the Root Mean Squared Error between y_true and y_pred using TensorFlow operations.
+
+    Parameters:
+    y_true (tensor): True target values.
+    y_pred (tensor): Predicted values.
+
+    Returns:
+    tensor: The root mean squared error.
+    """
+    return tf.math.sqrt(tf.reduce_mean(tf.square(y_pred - y_true)))
+
 def main(debug:bool=False):
     # ------------------------------
     # 1. Data Loading and Preprocessing
@@ -146,7 +191,7 @@ def main(debug:bool=False):
     spikes_times = spikes_1k_df.values[0]
 
     #   Create logical array of size (1, lfp.shape[1]) of zeros
-    ms_buffer = 1000 # 1 s buffer after last timestamp
+    ms_buffer = 10000 # 1 s buffer after last timestamp
     spikes = np.zeros(max(spikes_times)+1000)
 
     #   For each spike time in spike_times, set that index in spikes to 1
@@ -155,94 +200,93 @@ def main(debug:bool=False):
     
     spikes_firing_rate = get_spike_firing_rate(spikes, window_size=100, debug_plot=False)
 
-    #   Handle LFP
-    #   Where sEEG_df is a 132x4983702 array, where there are 132 channels and 4983702 time points
-    #   Sample Rate of LFP is 1kHz
-    #   The time points are in milliseconds
 
-    # Get LFP and spike data
-    lfp = sEEG_df.values.astype(np.float32) # convert to float32 for memory efficiency
-    spikes = spikes_firing_rate.astype(np.float32) # convert to float32 for memory efficiency
+    # ------------------------------
+    # 2. Standardize Signals
+    # ------------------------------
+    # Handle LFP
+    # sEEG_df is a 132x4983702 array, where each row is a channel and each column is a time point.
+    # For initial testing, use only a subset of the data.
+    # max_samples = sEEG_df.shape[1]
+    max_samples = 9000  # Use a subset of samples for testing
+    num_channels = 1  # Use a subset of channels for testing (max of 132)
 
-     # Take only a subset of data for initial testing
-    # max_samples = 500000  # Start with a smaller dataset for testing
-    max_samples = lfp.shape[1]  # Start with a smaller dataset for testing
-
-    num_channels = 2 # Number of channels to use for testing, max of 132
-
+    # TODO: UPDATE: We dont actually know which is the nearest LFP sEEG contact point on the electrode. Using the first one for now...
     lfp = sEEG_df.values[:num_channels, :max_samples].astype(np.float32)
-
-    spikes = spikes_firing_rate[:max_samples].astype(np.float32)
+    
+    # Standardize each channel (axis=1) using StandardScaler:
+    scaler_lfp = StandardScaler()
+    for i in range(num_channels):
+        lfp[i, :] = scaler_lfp.fit_transform(lfp[i, :].reshape(-1, 1)).ravel()
+    
+    # Standardize spikes firing rate signal
+    spikes_firing_rate = spikes_firing_rate[:max_samples].astype(np.float32)
+    scaler_spikes = StandardScaler()
+    spikes_standardized = scaler_spikes.fit_transform(spikes_firing_rate.reshape(-1, 1)).ravel()
             
     # ------------------------------
-    # 2. Creating Sequences for the LSTM
+    # 3. Creating Sequences for the LSTM
     # ------------------------------
-    #   Define a window size (number of timesteps per sample)
-    window_size = 1  # 50 ms of context
+    window_size = 50  # window size in timesteps
+    X, y = create_sequences(lfp, spikes_standardized, window_size)
     
-    #   Create sequences from the LFP and spike data
-    X, y = create_sequences(lfp, spikes, window_size)
-    
-    # Reshape X to have shape (samples, timesteps, features). In this case, features=1.
-
+    # Reshape X to (samples, timesteps, features)
     if debug:
         print("Before reshaping:")
         print(f"X shape: {X.shape}, Expected: (num_samples, {window_size}, {num_channels})")
         print(f"y shape: {y.shape}, Expected: (num_samples,)")
-
     X = X.reshape(-1, window_size, num_channels)
-
     if debug:
         print("After reshaping:")
         print(f"X shape: {X.shape}")
         print(f"y shape: {y.shape}")
 
-   
     # ------------------------------
-    # 3. Splitting the Dataset: 70% Training, 30% Validation
+    # 4. Splitting the Dataset: 70% Training, 30% Validation
     # ------------------------------
     X_train, X_val, y_train, y_val = train_test_split(
         X, y, test_size=0.3, random_state=42
     )
-
     if debug:
         print(f"Training set shape: X_train={X_train.shape}, y_train={y_train.shape}")
         print(f"Validation set shape: X_val={X_val.shape}, y_val={y_val.shape}")
-                
+                          
     # ------------------------------
-    # 4. Building the Bidirectional LSTM Model
+    # 5. Building the Bidirectional LSTM Model for Regression
     # ------------------------------
-    input_timesteps = X_train.shape[1] # Where X is num_samples, timesteps, num_features
+    input_timesteps = X_train.shape[1]
     input_features = X_train.shape[2]
     
     model = Sequential([
-        # First Bidirectional LSTM layer; return_sequences=True to allow stacking
+        # First Bidirectional LSTM layer with LayerNormalization followed by dropout
         Bidirectional(LSTM(64, return_sequences=True), input_shape=(input_timesteps, input_features)),
+        LayerNormalization(),
         Dropout(0.2),
         
-        # Second Bidirectional LSTM layer; return_sequences=False as it's the last LSTM layer
+        # Second Bidirectional LSTM layer with LayerNormalization followed by dropout
         Bidirectional(LSTM(32, return_sequences=False)),
+        LayerNormalization(),
         Dropout(0.2),
         
-        # Final Dense layer for binary classification (predicting spike or no spike)
-        Dense(1, activation='sigmoid')
+        # Final Dense layer for regression (predicting a continuous value)
+        Dense(1, activation='linear')
     ])
     
 
     time_start_model = time.time()
-
-    model.compile(loss='binary_crossentropy', optimizer=Adam(learning_rate=0.001), metrics=['accuracy'])
+    model.compile(
+        loss='mean_squared_error',
+        optimizer=Adam(learning_rate=0.001),
+        metrics=['mse', rmse]
+    )
     model.summary()
-
     time_end_model = time.time()
     print(f"Model building time: {time_end_model - time_start_model} seconds")
     
     # ------------------------------
-    # 5. Training the Model
+    # 6. Training the Model
     # ------------------------------
-
     time_start_training = time.time()
-
     history = model.fit(
         X_train, y_train,
         validation_data=(X_val, y_val),
@@ -253,25 +297,20 @@ def main(debug:bool=False):
     time_end_training = time.time()
     print(f"Model training time: {time_end_training - time_start_training} seconds")
     
-    # Save the Keras model to an H5 file
-    # Create a timestamp string for the model filename
+    # Save the Keras model to an H5 file with a timestamp
     from datetime import datetime
-    import os
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-
-    # Create models directory if it doesn't exist
     os.makedirs("models", exist_ok=True)
-
-    # Save model with timestamp in filename
     keras_model_path = f"models/spike_inference_model_{timestamp}.h5"
-
     model.save(keras_model_path)
-    
     print(f"Keras model saved to {keras_model_path}")
+
+    # Clean up memory mapped files after model is trained
+    clean_up_memmap_files(X, y, delete_files=True)
+
     # ------------------------------
-    # 6. Plotting Training History
+    # 7. Plotting Training History
     # ------------------------------
-    # Plot Training & Validation Loss
     plt.figure(figsize=(10, 5))
     plt.plot(history.history['loss'], label='Training Loss', color='blue')
     plt.plot(history.history['val_loss'], label='Validation Loss', color='red')
@@ -282,16 +321,51 @@ def main(debug:bool=False):
     plt.grid()
     plt.show()
     
-    # Plot Training & Validation Accuracy
     plt.figure(figsize=(10, 5))
-    plt.plot(history.history['accuracy'], label='Training Accuracy', color='blue')
-    plt.plot(history.history['val_accuracy'], label='Validation Accuracy', color='red')
+    plt.plot(history.history['mse'], label='Training MSE', color='blue')
+    plt.plot(history.history['val_mse'], label='Validation MSE', color='red')
     plt.xlabel('Epochs')
-    plt.ylabel('Accuracy')
-    plt.title('Training & Validation Accuracy')
+    plt.ylabel('MSE')
+    plt.title('Training & Validation MSE')
     plt.legend()
     plt.grid()
     plt.show()
 
+
+    # ------------------------------
+    # 8. Model Evaluation and Metrics
+    # ------------------------------
+
+    print("\n===== MODEL EVALUATION =====")
+
+    # Evaluate on validation set
+    val_metrics = model.evaluate(X_val, y_val, verbose=0)
+    print(f"Validation Loss (MSE): {val_metrics[0]:.4f}")
+    print(f"Validation RMSE: {val_metrics[2]:.4f}")
+    print(f"Validation R²: {val_metrics[3]:.4f}")
+    print(f"Validation MAE: {val_metrics[4]:.4f}")
+
+    # Make predictions
+    y_pred = model.predict(X_val)
+
+    # Calculate custom threshold accuracy
+    accuracy_5pct = threshold_accuracy(y_val, y_pred.flatten(), threshold=0.05)
+    accuracy_10pct = threshold_accuracy(y_val, y_pred.flatten(), threshold=0.10)
+    accuracy_20pct = threshold_accuracy(y_val, y_pred.flatten(), threshold=0.20)
+
+    print(f"Predictions within 5% of true values: {accuracy_5pct:.2f}%")
+    print(f"Predictions within 10% of true values: {accuracy_10pct:.2f}%")
+    print(f"Predictions within 20% of true values: {accuracy_20pct:.2f}%")
+
+    # Create a scatter plot of predictions vs. actual values
+    plt.figure(figsize=(10, 8))
+    plt.scatter(y_val, y_pred, alpha=0.3)
+    plt.plot([min(y_val), max(y_val)], [min(y_val), max(y_val)], 'r--')
+    plt.xlabel('True Values')
+    plt.ylabel('Predictions')
+    plt.title('Predictions vs. Actual Values')
+    plt.grid(True)
+    plt.savefig(f"models/prediction_scatter_{timestamp}.png")
+    plt.show()
 if __name__ == "__main__":
     main(debug=True)
