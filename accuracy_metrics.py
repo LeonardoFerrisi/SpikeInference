@@ -26,20 +26,19 @@ def mean_absolute_error(y_true, y_pred):
     """
     return tf.reduce_mean(tf.abs(y_true - y_pred))
 
-def threshold_accuracy(y_true, y_pred, threshold=0.1):
+def threshold_accuracy(y_true, y_pred, threshold=0.5):
     """
-    Calculate the percentage of predictions within a threshold of the true values.
-    This can be used after model predictions are made, not as a Keras metric.
+    Calculate percentage of predictions within an absolute threshold of true values.
+    Better suited for standardized data.
     
     Args:
         y_true: True values
         y_pred: Predicted values
-        threshold: Maximum allowed deviation (as a fraction of the true value)
+        threshold: Absolute maximum allowed deviation (e.g., 0.5 standard deviations)
     
     Returns:
         Percentage of predictions within threshold
     """
     abs_diff = np.abs(y_true - y_pred)
-    abs_threshold = np.abs(y_true * threshold)
-    within_threshold = np.sum(abs_diff <= abs_threshold)
+    within_threshold = np.sum(abs_diff <= threshold)
     return within_threshold / len(y_true) * 100

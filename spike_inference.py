@@ -173,19 +173,15 @@ def rmse(y_true, y_pred):
     """
     return tf.math.sqrt(tf.reduce_mean(tf.square(y_pred - y_true)))
 
-def main(debug:bool=False):
+def spike_inference(spikes_file, lfp_file, region='NA', debug:bool=False):
     # ------------------------------
     # 1. Data Loading and Preprocessing
     # ------------------------------
     #   Load the spikes data
-    spikes_electrodes_df = load_data('data/actual_data/electrode.mat', data_key='electrode')
-    spikes_1k_df  = load_data('data/actual_data/spikes_1k.mat', data_key='spikes_1k')
+    spikes_1k_df  = load_data(spikes_file, data_key='spikes_1k')
     #   **Where spikes_1k_df is a 132x4983702 array, where there are 132 channels and 4983702 time points
 
-    spikes_30k_df        = load_data('data/actual_data/spikes_30k.mat', data_key='spikes_30k')
-    spikes_unit_df       = load_data('data/actual_data/unit.mat', data_key='unit')
-    spikes_waveform_df   = load_data('data/actual_data/waveform.mat', data_key='waveform')
-    sEEG_df              = load_data('data/actual_data/try_sEEG_Data.mat', data_key='Data')
+    sEEG_df       = load_data(lfp_file, data_key='Data')
 
     #   Convert spike_times into a gaussian firing rate ---------------------------
     spikes_times = spikes_1k_df.values[0]
@@ -267,7 +263,7 @@ def main(debug:bool=False):
         Bidirectional(LSTM(32, return_sequences=False)),
         LayerNormalization(),
         Dropout(0.2),
-        
+            
         # Final Dense layer for regression (predicting a continuous value)
         Dense(1, activation='linear')
     ])
@@ -277,7 +273,7 @@ def main(debug:bool=False):
     model.compile(
         loss='mean_squared_error',
         optimizer=Adam(learning_rate=0.001),
-        metrics=['mse', rmse]
+        metrics=['mse', rmse, r_squared, 'mae']
     )
     model.summary()
     time_end_model = time.time()
@@ -348,14 +344,14 @@ def main(debug:bool=False):
     # Make predictions
     y_pred = model.predict(X_val)
 
-    # Calculate custom threshold accuracy
-    accuracy_5pct = threshold_accuracy(y_val, y_pred.flatten(), threshold=0.05)
-    accuracy_10pct = threshold_accuracy(y_val, y_pred.flatten(), threshold=0.10)
-    accuracy_20pct = threshold_accuracy(y_val, y_pred.flatten(), threshold=0.20)
+    # For standardized data, use absolute thresholds in terms of standard deviations
+    accuracy_0_5std = threshold_accuracy(y_val, y_pred.flatten(), threshold=0.5)
+    accuracy_1_0std = threshold_accuracy(y_val, y_pred.flatten(), threshold=1.0)
+    accuracy_2_0std = threshold_accuracy(y_val, y_pred.flatten(), threshold=2.0)
 
-    print(f"Predictions within 5% of true values: {accuracy_5pct:.2f}%")
-    print(f"Predictions within 10% of true values: {accuracy_10pct:.2f}%")
-    print(f"Predictions within 20% of true values: {accuracy_20pct:.2f}%")
+    print(f"Predictions within 0.5 std dev of true values: {accuracy_0_5std:.2f}%")
+    print(f"Predictions within 1.0 std dev of true values: {accuracy_1_0std:.2f}%")
+    print(f"Predictions within 2.0 std dev of true values: {accuracy_2_0std:.2f}%")
 
     # Create a scatter plot of predictions vs. actual values
     plt.figure(figsize=(10, 8))
@@ -367,5 +363,6 @@ def main(debug:bool=False):
     plt.grid(True)
     plt.savefig(f"models/prediction_scatter_{timestamp}.png")
     plt.show()
+
 if __name__ == "__main__":
-    main(debug=True)
+    spike_inference(spikes_file='data/actual_data/patient1/spike_times_set1_1k.mat', lfp_file='data/actual_data/patient1/try_sEEG_Data.mat', region='NA', debug=True)
