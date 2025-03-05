@@ -357,7 +357,7 @@ def spike_inference(spikes_file, lfp_file, lfp_key='Data', spikes_key='spikes_1k
     plt.show()
 
 if __name__ == "__main__":
-    spike_inference(lfp_channel=65, samples_ms=25000,
+    spike_inference(lfp_channel=65, samples_ms=100000,
                     spikes_file='data/actual_data/patient1/spike_times_set1_1k.mat', spikes_key='spike_times_set1_1k',
                     lfp_file='data/actual_data/patient1/try_sEEG_Data.mat', lfp_key='Data',
                     region='NA', debug=True, render_logo=True)

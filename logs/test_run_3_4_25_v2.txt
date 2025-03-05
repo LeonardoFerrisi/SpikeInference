@@ -1,0 +1,176 @@
+2025-03-04 23:03:00.310442: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2025-03-04 23:03:02.068154: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+Number of CPU cores available: 16
+No GPU found, using CPU.
+TensorFlow version: 2.18.0
+Num GPUs Available: 0
+TensorFlow intra-op threads: 0
+TensorFlow inter-op threads: 0
+
+ _____       _ _       _____       __
+/  ___|     (_) |     |_   _|     / _|
+\ `--. _ __  _| | _____ | | _ __ | |_ ___ _ __ ___ _ __   ___ ___
+ `--. \ '_ \| | |/ / _ \| || '_ \|  _/ _ \ '__/ _ \ '_ \ / __/ _ \
+/\__/ / |_) | |   <  __/| || | | | ||  __/ | |  __/ | | | (_|  __/
+\____/| .__/|_|_|\_\___\___/_| |_|_| \___|_|  \___|_| |_|\___\___|
+      | |
+      |_|
+
+------------------------------------
+Loading data:
+
+dict_keys(['__header__', '__version__', '__globals__', 'spike_times_set1_1k'])
+Data loaded from: data/actual_data/patient1/spike_times_set1_1k.mat
+Shape: (1, 169515)
+Data type: float64
+------------------------------
+dict_keys(['__header__', '__version__', '__globals__', 'Data'])
+Data loaded from: data/actual_data/patient1/try_sEEG_Data.mat
+Shape: (132, 4983702)
+Data type: int16
+------------------------------
+------------------------------------
+
+Creating sequences |████████████████████████████████████████| 9950/9950 [100%] i
+Before reshaping:
+X shape: (9950, 50, 1), Expected: (num_samples, 50, 1)
+y shape: (9950,), Expected: (num_samples,)
+After reshaping:
+X shape: (9950, 50, 1)
+y shape: (9950,)
+Training set shape: X_train=(6965, 50, 1), y_train=(6965,)
+Validation set shape: X_val=(2985, 50, 1), y_val=(2985,)
+2025-03-04 23:04:02.209354: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+C:\Users\PRISM\Documents\CourseSoftware\SpikeInference\.venv\Lib\site-packages\keras\src\layers\rnn\bidirectional.py:107: UserWarning: Do not pass an `input_shape`/`input_dim` argument to a layer. When using Sequential models, prefer using an `Input(shape)` object as the first layer in the model instead.
+  super().__init__(**kwargs)
+Model: "sequential"
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┓
+┃ Layer (type)                         ┃ Output Shape                ┃         Param # ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━┩
+│ bidirectional (Bidirectional)        │ (None, 50, 128)             │          33,792 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ layer_normalization                  │ (None, 50, 128)             │             256 │
+│ (LayerNormalization)                 │                             │                 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dropout (Dropout)                    │ (None, 50, 128)             │               0 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ bidirectional_1 (Bidirectional)      │ (None, 128)                 │          98,816 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ layer_normalization_1                │ (None, 128)                 │             256 │
+│ (LayerNormalization)                 │                             │                 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dropout_1 (Dropout)                  │ (None, 128)                 │               0 │
+├──────────────────────────────────────┼─────────────────────────────┼─────────────────┤
+│ dense (Dense)                        │ (None, 1)                   │             129 │
+└──────────────────────────────────────┴─────────────────────────────┴─────────────────┘
+ Total params: 133,249 (520.50 KB)
+ Trainable params: 133,249 (520.50 KB)
+ Non-trainable params: 0 (0.00 B)
+Model building time: 0.01553201675415039 seconds
+Epoch 1/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 29s 32ms/step - loss: 1.6046 - mae: 1.0087 - mse: 1.6046 - r_squared: -1.0000 - rmse: 1.3433 - val_loss: 1.9931 - val_mae: 1.3296 - val_mse: 1.9931 - val_r_squared: -1.0000 - val_rmse: 1.3337
+Epoch 2/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 23s 33ms/step - loss: 0.9099 - mae: 0.7915 - mse: 0.9099 - r_squared: -1.0000 - rmse: 1.1111 - val_loss: 1.6418 - val_mae: 1.1666 - val_mse: 1.6418 - val_r_squared: -1.0000 - val_rmse: 1.1701
+Epoch 3/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 32ms/step - loss: 0.8044 - mae: 0.7523 - mse: 0.8044 - r_squared: -1.0000 - rmse: 1.0736 - val_loss: 1.3339 - val_mae: 1.0851 - val_mse: 1.3339 - val_r_squared: -1.0000 - val_rmse: 1.0889
+Epoch 4/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 21s 31ms/step - loss: 0.7747 - mae: 0.7438 - mse: 0.7747 - r_squared: -1.0000 - rmse: 1.0806 - val_loss: 1.2423 - val_mae: 1.0781 - val_mse: 1.2423 - val_r_squared: -1.0000 - val_rmse: 1.0799
+Epoch 5/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 21s 31ms/step - loss: 0.7541 - mae: 0.7324 - mse: 0.7541 - r_squared: -1.0000 - rmse: 1.0615 - val_loss: 1.2679 - val_mae: 1.0501 - val_mse: 1.2679 - val_r_squared: -1.0000 - val_rmse: 1.0524
+Epoch 6/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 23s 33ms/step - loss: 0.7227 - mae: 0.7095 - mse: 0.7227 - r_squared: -1.0000 - rmse: 1.0740 - val_loss: 1.4370 - val_mae: 1.1111 - val_mse: 1.4370 - val_r_squared: -1.0000 - val_rmse: 1.1139
+Epoch 7/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 24s 34ms/step - loss: 0.7176 - mae: 0.7060 - mse: 0.7176 - r_squared: -1.0000 - rmse: 1.0607 - val_loss: 1.5540 - val_mae: 1.1823 - val_mse: 1.5540 - val_r_squared: -1.0000 - val_rmse: 1.1857
+Epoch 8/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 23s 33ms/step - loss: 0.7171 - mae: 0.7123 - mse: 0.7171 - r_squared: -1.0000 - rmse: 1.0535 - val_loss: 1.4682 - val_mae: 1.0923 - val_mse: 1.4682 - val_r_squared: -1.0000 - val_rmse: 1.0980
+Epoch 9/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 23s 32ms/step - loss: 0.6944 - mae: 0.6987 - mse: 0.6944 - r_squared: -1.0000 - rmse: 1.0714 - val_loss: 1.5699 - val_mae: 1.1560 - val_mse: 1.5699 - val_r_squared: -1.0000 - val_rmse: 1.1600
+Epoch 10/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 32ms/step - loss: 0.6696 - mae: 0.6820 - mse: 0.6696 - r_squared: -1.0000 - rmse: 1.0987 - val_loss: 1.5231 - val_mae: 1.1343 - val_mse: 1.5231 - val_r_squared: -1.0000 - val_rmse: 1.1412
+Epoch 11/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 32ms/step - loss: 0.6366 - mae: 0.6595 - mse: 0.6366 - r_squared: -1.0000 - rmse: 1.0806 - val_loss: 1.5492 - val_mae: 1.1441 - val_mse: 1.5492 - val_r_squared: -1.0000 - val_rmse: 1.1502
+Epoch 12/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.6220 - mae: 0.6494 - mse: 0.6220 - r_squared: -1.0000 - rmse: 1.0987 - val_loss: 1.5088 - val_mae: 1.1271 - val_mse: 1.5088 - val_r_squared: -1.0000 - val_rmse: 1.1337
+Epoch 13/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 21s 31ms/step - loss: 0.5724 - mae: 0.6156 - mse: 0.5724 - r_squared: -1.0000 - rmse: 1.1055 - val_loss: 1.6868 - val_mae: 1.1548 - val_mse: 1.6868 - val_r_squared: -1.0000 - val_rmse: 1.1649
+Epoch 14/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 32ms/step - loss: 0.5437 - mae: 0.5938 - mse: 0.5437 - r_squared: -1.0000 - rmse: 1.1317 - val_loss: 1.5909 - val_mae: 1.1574 - val_mse: 1.5909 - val_r_squared: -1.0000 - val_rmse: 1.1673
+Epoch 15/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 23s 32ms/step - loss: 0.5187 - mae: 0.5784 - mse: 0.5187 - r_squared: -1.0000 - rmse: 1.1211 - val_loss: 1.3876 - val_mae: 1.0450 - val_mse: 1.3876 - val_r_squared: -1.0000 - val_rmse: 1.0579
+Epoch 16/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 23s 33ms/step - loss: 0.4676 - mae: 0.5418 - mse: 0.4676 - r_squared: -1.0000 - rmse: 1.1349 - val_loss: 1.3794 - val_mae: 1.0059 - val_mse: 1.3794 - val_r_squared: -1.0000 - val_rmse: 1.0198
+Epoch 17/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 32ms/step - loss: 0.4390 - mae: 0.5189 - mse: 0.4390 - r_squared: -1.0000 - rmse: 1.1653 - val_loss: 1.6792 - val_mae: 1.1183 - val_mse: 1.6792 - val_r_squared: -1.0000 - val_rmse: 1.1349
+Epoch 18/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 23s 33ms/step - loss: 0.4091 - mae: 0.4978 - mse: 0.4091 - r_squared: -1.0000 - rmse: 1.1722 - val_loss: 1.5587 - val_mae: 1.0449 - val_mse: 1.5587 - val_r_squared: -1.0000 - val_rmse: 1.0622
+Epoch 19/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 32ms/step - loss: 0.3883 - mae: 0.4793 - mse: 0.3883 - r_squared: -1.0000 - rmse: 1.1916 - val_loss: 1.5808 - val_mae: 1.0902 - val_mse: 1.5808 - val_r_squared: -1.0000 - val_rmse: 1.1096
+Epoch 20/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.3440 - mae: 0.4466 - mse: 0.3440 - r_squared: -1.0000 - rmse: 1.1901 - val_loss: 1.3578 - val_mae: 0.9821 - val_mse: 1.3578 - val_r_squared: -1.0000 - val_rmse: 1.0030
+Epoch 21/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 32ms/step - loss: 0.3234 - mae: 0.4286 - mse: 0.3234 - r_squared: -1.0000 - rmse: 1.1899 - val_loss: 1.7774 - val_mae: 1.1533 - val_mse: 1.7774 - val_r_squared: -1.0000 - val_rmse: 1.1743
+Epoch 22/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 23s 33ms/step - loss: 0.2996 - mae: 0.4154 - mse: 0.2996 - r_squared: -1.0000 - rmse: 1.1821 - val_loss: 1.5893 - val_mae: 1.0775 - val_mse: 1.5893 - val_r_squared: -1.0000 - val_rmse: 1.0968
+Epoch 23/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.2754 - mae: 0.3893 - mse: 0.2754 - r_squared: -1.0000 - rmse: 1.2041 - val_loss: 1.5269 - val_mae: 1.0259 - val_mse: 1.5269 - val_r_squared: -1.0000 - val_rmse: 1.0475
+Epoch 24/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 23s 33ms/step - loss: 0.2636 - mae: 0.3814 - mse: 0.2636 - r_squared: -1.0000 - rmse: 1.2050 - val_loss: 1.7069 - val_mae: 1.1058 - val_mse: 1.7069 - val_r_squared: -1.0000 - val_rmse: 1.1291
+Epoch 25/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.2650 - mae: 0.3833 - mse: 0.2650 - r_squared: -1.0000 - rmse: 1.2139 - val_loss: 1.4329 - val_mae: 1.0331 - val_mse: 1.4329 - val_r_squared: -1.0000 - val_rmse: 1.0552
+Epoch 26/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.2416 - mae: 0.3612 - mse: 0.2416 - r_squared: -1.0000 - rmse: 1.2075 - val_loss: 1.6990 - val_mae: 1.1207 - val_mse: 1.6990 - val_r_squared: -1.0000 - val_rmse: 1.1462
+Epoch 27/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 32ms/step - loss: 0.2253 - mae: 0.3511 - mse: 0.2253 - r_squared: -1.0000 - rmse: 1.2222 - val_loss: 1.5460 - val_mae: 1.0019 - val_mse: 1.5460 - val_r_squared: -1.0000 - val_rmse: 1.0261
+Epoch 28/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.1966 - mae: 0.3288 - mse: 0.1966 - r_squared: -1.0000 - rmse: 1.2448 - val_loss: 1.6568 - val_mae: 1.0657 - val_mse: 1.6568 - val_r_squared: -1.0000 - val_rmse: 1.0877
+Epoch 29/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 21s 31ms/step - loss: 0.2114 - mae: 0.3391 - mse: 0.2114 - r_squared: -1.0000 - rmse: 1.2377 - val_loss: 1.4553 - val_mae: 0.9972 - val_mse: 1.4553 - val_r_squared: -1.0000 - val_rmse: 1.0209
+Epoch 30/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 32ms/step - loss: 0.1809 - mae: 0.3142 - mse: 0.1809 - r_squared: -1.0000 - rmse: 1.2327 - val_loss: 1.5339 - val_mae: 1.0348 - val_mse: 1.5339 - val_r_squared: -1.0000 - val_rmse: 1.0588
+Epoch 31/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.1755 - mae: 0.3064 - mse: 0.1755 - r_squared: -1.0000 - rmse: 1.2509 - val_loss: 1.5344 - val_mae: 1.0220 - val_mse: 1.5344 - val_r_squared: -1.0000 - val_rmse: 1.0468
+Epoch 32/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.1571 - mae: 0.2940 - mse: 0.1571 - r_squared: -1.0000 - rmse: 1.2402 - val_loss: 1.5658 - val_mae: 1.0277 - val_mse: 1.5658 - val_r_squared: -1.0000 - val_rmse: 1.0514
+Epoch 33/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.1526 - mae: 0.2877 - mse: 0.1526 - r_squared: -1.0000 - rmse: 1.2487 - val_loss: 1.6242 - val_mae: 1.0683 - val_mse: 1.6242 - val_r_squared: -1.0000 - val_rmse: 1.0936
+Epoch 34/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.1350 - mae: 0.2712 - mse: 0.1350 - r_squared: -1.0000 - rmse: 1.2547 - val_loss: 1.7164 - val_mae: 1.0859 - val_mse: 1.7164 - val_r_squared: -1.0000 - val_rmse: 1.1129
+Epoch 35/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 32ms/step - loss: 0.1552 - mae: 0.2810 - mse: 0.1552 - r_squared: -1.0000 - rmse: 1.2524 - val_loss: 1.6652 - val_mae: 1.0563 - val_mse: 1.6652 - val_r_squared: -1.0000 - val_rmse: 1.0848
+Epoch 36/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 24s 34ms/step - loss: 0.1339 - mae: 0.2646 - mse: 0.1339 - r_squared: -1.0000 - rmse: 1.2341 - val_loss: 1.4609 - val_mae: 0.9738 - val_mse: 1.4609 - val_r_squared: -1.0000 - val_rmse: 1.0004
+Epoch 37/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.1314 - mae: 0.2609 - mse: 0.1314 - r_squared: -1.0000 - rmse: 1.2406 - val_loss: 1.3962 - val_mae: 0.9556 - val_mse: 1.3962 - val_r_squared: -1.0000 - val_rmse: 0.9827
+Epoch 38/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.1205 - mae: 0.2525 - mse: 0.1205 - r_squared: -1.0000 - rmse: 1.2553 - val_loss: 1.4973 - val_mae: 0.9785 - val_mse: 1.4973 - val_r_squared: -1.0000 - val_rmse: 1.0051
+Epoch 39/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 32ms/step - loss: 0.1022 - mae: 0.2324 - mse: 0.1022 - r_squared: -1.0000 - rmse: 1.2609 - val_loss: 1.5862 - val_mae: 1.0377 - val_mse: 1.5862 - val_r_squared: -1.0000 - val_rmse: 1.0645
+Epoch 40/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.1119 - mae: 0.2409 - mse: 0.1119 - r_squared: -1.0000 - rmse: 1.2732 - val_loss: 1.4928 - val_mae: 0.9937 - val_mse: 1.4928 - val_r_squared: -1.0000 - val_rmse: 1.0220
+Epoch 41/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.1057 - mae: 0.2358 - mse: 0.1057 - r_squared: -1.0000 - rmse: 1.2579 - val_loss: 1.6383 - val_mae: 1.0503 - val_mse: 1.6383 - val_r_squared: -1.0000 - val_rmse: 1.0766
+Epoch 42/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.0995 - mae: 0.2295 - mse: 0.0995 - r_squared: -1.0000 - rmse: 1.2582 - val_loss: 1.6079 - val_mae: 1.0302 - val_mse: 1.6079 - val_r_squared: -1.0000 - val_rmse: 1.0572
+Epoch 43/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.1345 - mae: 0.2595 - mse: 0.1345 - r_squared: -1.0000 - rmse: 1.2677 - val_loss: 1.4140 - val_mae: 0.9612 - val_mse: 1.4140 - val_r_squared: -1.0000 - val_rmse: 0.9901
+Epoch 44/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.1066 - mae: 0.2325 - mse: 0.1066 - r_squared: -1.0000 - rmse: 1.2589 - val_loss: 1.5182 - val_mae: 0.9940 - val_mse: 1.5182 - val_r_squared: -1.0000 - val_rmse: 1.0218
+Epoch 45/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 21s 31ms/step - loss: 0.0819 - mae: 0.2062 - mse: 0.0819 - r_squared: -1.0000 - rmse: 1.2637 - val_loss: 1.4430 - val_mae: 0.9492 - val_mse: 1.4430 - val_r_squared: -1.0000 - val_rmse: 0.9782
+Epoch 46/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 21s 31ms/step - loss: 0.0815 - mae: 0.2087 - mse: 0.0815 - r_squared: -1.0000 - rmse: 1.2669 - val_loss: 1.3943 - val_mae: 0.9361 - val_mse: 1.3943 - val_r_squared: -1.0000 - val_rmse: 0.9654
+Epoch 47/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.0876 - mae: 0.2148 - mse: 0.0876 - r_squared: -1.0000 - rmse: 1.2546 - val_loss: 1.6386 - val_mae: 1.0269 - val_mse: 1.6386 - val_r_squared: -1.0000 - val_rmse: 1.0607
+Epoch 48/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.0793 - mae: 0.2030 - mse: 0.0793 - r_squared: -1.0000 - rmse: 1.2555 - val_loss: 1.6612 - val_mae: 1.0474 - val_mse: 1.6612 - val_r_squared: -1.0000 - val_rmse: 1.0739
+Epoch 49/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 21s 31ms/step - loss: 0.0774 - mae: 0.2009 - mse: 0.0774 - r_squared: -1.0000 - rmse: 1.2556 - val_loss: 1.5112 - val_mae: 0.9706 - val_mse: 1.5112 - val_r_squared: -1.0000 - val_rmse: 1.0003
+Epoch 50/50
+697/697 ━━━━━━━━━━━━━━━━━━━━ 22s 31ms/step - loss: 0.0638 - mae: 0.1853 - mse: 0.0638 - r_squared: -1.0000 - rmse: 1.2657 - val_loss: 1.6448 - val_mae: 1.0522 - val_mse: 1.6448 - val_r_squared: -1.0000 - val_rmse: 1.0795
+Model training time: 1111.7996246814728 seconds
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`.
+Keras model saved to models/spike_inference_model_20250304_2322.h5
+Deleted X_data.dat
+Deleted y_data.dat
+History keys are: dict_keys(['loss', 'mae', 'mse', 'r_squared', 'rmse', 'val_loss', 'val_mae', 'val_mse', 'val_r_squared', 'val_rmse'])
