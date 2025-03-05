@@ -249,7 +249,7 @@ def spike_inference(spikes_file, lfp_file, lfp_key='Data', spikes_key='spikes_1k
     # ------------------------------
     # 3. Creating Sequences for the LSTM
     # ------------------------------
-    window_size = 20  # window size in timesteps
+    window_size = 50  # window size in timesteps
     X, y = create_sequences(lfp, spikes_standardized, window_size)
     
     # Reshape X to (samples, timesteps, features)
@@ -278,37 +278,29 @@ def spike_inference(spikes_file, lfp_file, lfp_key='Data', spikes_key='spikes_1k
     # ------------------------------
     input_timesteps = X_train.shape[1]
     input_features = X_train.shape[2]
-    
+    # Create a more robust model with better regularization
     model = Sequential([
         # First Bidirectional LSTM layer with LayerNormalization followed by dropout
         Bidirectional(LSTM(64, return_sequences=True), input_shape=(input_timesteps, input_features)),
         LayerNormalization(),
-        Dropout(0.2),
+        Dropout(0.3),
         
         # Second Bidirectional LSTM layer with LayerNormalization followed by dropout
         Bidirectional(LSTM(64, return_sequences=False)),
         LayerNormalization(),
-        Dropout(0.2),
-
-        # # Third Bidirectional LSTM layer with LayerNormalization followed by dropout
-        # Bidirectional(LSTM(64, return_sequences=True)),
-        # LayerNormalization(),
-        # Dropout(0.2),
-
-        # # Forth Bidirectional LSTM layer with LayerNormalization followed by dropout
-        # Bidirectional(LSTM(64, return_sequences=False)),
-        # LayerNormalization(),
-        # Dropout(0.2),
+        Dropout(0.3),
             
         # Final Dense layer for regression (predicting a continuous value)
         Dense(1, activation='linear')
     ])
     
+    # Use a lower learning rate for better convergence
+    optimizer = Adam(learning_rate=0.00005)
 
     time_start_model = time.time()
     model.compile(
         loss='mean_squared_error',
-        optimizer=Adam(learning_rate=0.001),
+        optimizer=optimizer,
         metrics=['mse', rmse, r_squared, 'mae']
     )
     model.summary()
@@ -322,8 +314,8 @@ def spike_inference(spikes_file, lfp_file, lfp_key='Data', spikes_key='spikes_1k
     history = model.fit(
         X_train, y_train,
         validation_data=(X_val, y_val),
-        epochs=10,         # Adjust the number of epochs as needed
-        batch_size=32,     # Adjust batch size as needed
+        epochs=50,         # Adjust the number of epochs as needed
+        batch_size=10,     # Adjust batch size as needed
         verbose=1
     )
     time_end_training = time.time()
@@ -364,45 +356,8 @@ def spike_inference(spikes_file, lfp_file, lfp_key='Data', spikes_key='spikes_1k
     plt.grid()
     plt.show()
 
-
-    # ------------------------------
-    # 8. Model Evaluation and Metrics
-    # ------------------------------
-
-    # print("\n===== MODEL EVALUATION =====")
-
-    # # Evaluate on validation set
-    # val_metrics = model.evaluate(X_val, y_val, verbose=0)
-    # print(f"Validation Loss (MSE): {val_metrics[0]:.4f}")
-    # print(f"Validation RMSE: {val_metrics[2]:.4f}")
-    # print(f"Validation R²: {val_metrics[3]:.4f}")
-    # print(f"Validation MAE: {val_metrics[4]:.4f}")
-
-    # # Make predictions
-    # y_pred = model.predict(X_val)
-
-    # # For standardized data, use absolute thresholds in terms of standard deviations
-    # accuracy_0_5std = threshold_accuracy(y_val, y_pred.flatten(), threshold=0.5)
-    # accuracy_1_0std = threshold_accuracy(y_val, y_pred.flatten(), threshold=1.0)
-    # accuracy_2_0std = threshold_accuracy(y_val, y_pred.flatten(), threshold=2.0)
-
-    # print(f"Predictions within 0.5 std dev of true values: {accuracy_0_5std:.2f}%")
-    # print(f"Predictions within 1.0 std dev of true values: {accuracy_1_0std:.2f}%")
-    # print(f"Predictions within 2.0 std dev of true values: {accuracy_2_0std:.2f}%")
-
-    # # Create a scatter plot of predictions vs. actual values
-    # plt.figure(figsize=(10, 8))
-    # plt.scatter(y_val, y_pred, alpha=0.3)
-    # plt.plot([min(y_val), max(y_val)], [min(y_val), max(y_val)], 'r--')
-    # plt.xlabel('True Values')
-    # plt.ylabel('Predictions')
-    # plt.title('Predictions vs. Actual Values')
-    # plt.grid(True)
-    # plt.savefig(f"models/prediction_scatter_{timestamp}.png")
-    # plt.show()
-
 if __name__ == "__main__":
-    spike_inference(lfp_channel=65, samples_ms=250000,
+    spike_inference(lfp_channel=65, samples_ms=25000,
                     spikes_file='data/actual_data/patient1/spike_times_set1_1k.mat', spikes_key='spike_times_set1_1k',
                     lfp_file='data/actual_data/patient1/try_sEEG_Data.mat', lfp_key='Data',
                     region='NA', debug=True, render_logo=True)
