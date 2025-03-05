@@ -249,7 +249,7 @@ def spike_inference(spikes_file, lfp_file, lfp_key='Data', spikes_key='spikes_1k
     # ------------------------------
     # 3. Creating Sequences for the LSTM
     # ------------------------------
-    window_size = 5  # window size in timesteps
+    window_size = 20  # window size in timesteps
     X, y = create_sequences(lfp, spikes_standardized, window_size)
     
     # Reshape X to (samples, timesteps, features)
@@ -281,24 +281,24 @@ def spike_inference(spikes_file, lfp_file, lfp_key='Data', spikes_key='spikes_1k
     
     model = Sequential([
         # First Bidirectional LSTM layer with LayerNormalization followed by dropout
-        Bidirectional(LSTM(128, return_sequences=True), input_shape=(input_timesteps, input_features)),
+        Bidirectional(LSTM(64, return_sequences=True), input_shape=(input_timesteps, input_features)),
         LayerNormalization(),
         Dropout(0.2),
         
         # Second Bidirectional LSTM layer with LayerNormalization followed by dropout
-        Bidirectional(LSTM(64, return_sequences=True)),
-        LayerNormalization(),
-        Dropout(0.2),
-
-        # Third Bidirectional LSTM layer with LayerNormalization followed by dropout
-        Bidirectional(LSTM(64, return_sequences=True)),
-        LayerNormalization(),
-        Dropout(0.2),
-
-        # Forth Bidirectional LSTM layer with LayerNormalization followed by dropout
         Bidirectional(LSTM(64, return_sequences=False)),
         LayerNormalization(),
         Dropout(0.2),
+
+        # # Third Bidirectional LSTM layer with LayerNormalization followed by dropout
+        # Bidirectional(LSTM(64, return_sequences=True)),
+        # LayerNormalization(),
+        # Dropout(0.2),
+
+        # # Forth Bidirectional LSTM layer with LayerNormalization followed by dropout
+        # Bidirectional(LSTM(64, return_sequences=False)),
+        # LayerNormalization(),
+        # Dropout(0.2),
             
         # Final Dense layer for regression (predicting a continuous value)
         Dense(1, activation='linear')
@@ -322,7 +322,7 @@ def spike_inference(spikes_file, lfp_file, lfp_key='Data', spikes_key='spikes_1k
     history = model.fit(
         X_train, y_train,
         validation_data=(X_val, y_val),
-        epochs=50,         # Adjust the number of epochs as needed
+        epochs=10,         # Adjust the number of epochs as needed
         batch_size=32,     # Adjust batch size as needed
         verbose=1
     )
@@ -402,7 +402,7 @@ def spike_inference(spikes_file, lfp_file, lfp_key='Data', spikes_key='spikes_1k
     # plt.show()
 
 if __name__ == "__main__":
-    spike_inference(lfp_channel=1, samples_ms=30000,
+    spike_inference(lfp_channel=65, samples_ms=250000,
                     spikes_file='data/actual_data/patient1/spike_times_set1_1k.mat', spikes_key='spike_times_set1_1k',
                     lfp_file='data/actual_data/patient1/try_sEEG_Data.mat', lfp_key='Data',
                     region='NA', debug=True, render_logo=True)
