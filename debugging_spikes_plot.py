@@ -143,4 +143,5 @@ def debugging_spikes_plot(samples='all', lfp_channel=1):
 
 
 if __name__ == "__main__":
-    debugging_spikes_plot(samples=250000, lfp_channel=65)
+    # debugging_spikes_plot(samples=250000, lfp_channel=65)
+    debugging_spikes_plot(samples='all', lfp_channel=65)
