@@ -173,6 +173,42 @@ def rmse(y_true, y_pred):
     return tf.math.sqrt(tf.reduce_mean(tf.square(y_pred - y_true)))
 
 def spike_inference(spikes_file, lfp_file, lfp_key='Data', spikes_key='spikes_1k', region='NA', samples_ms=20000, lfp_channel=1, debug:bool=False, debug_lfp:bool=False, render_logo=False, shuffle_validation=False):
+    """
+    Perform spike inference using LFP (Local Field Potential) data and spike times.
+    This function loads spike and LFP data, preprocesses the data, standardizes the signals,
+    creates sequences for LSTM (Long Short-Term Memory) model training, builds and trains
+    a bidirectional LSTM model, and plots the training history.
+    
+    Parameters:
+        spikes_file : str
+            Path to the file containing spike times data.
+        lfp_file : str
+            Path to the file containing LFP data.
+        lfp_key : str, optional
+            Key to access LFP data within the file (default is 'Data').
+        spikes_key : str, optional
+            Key to access spike times data within the file (default is 'spikes_1k').
+        region : str, optional
+            Region of interest (default is 'NA').
+        samples_ms : int, optional
+            Number of samples in milliseconds to use for testing (default is 20000).
+        lfp_channel : int, optional
+            LFP channel to use for analysis (default is 1).
+        debug : bool, optional
+            If True, print debug information (default is False).
+        debug_lfp : bool, optional
+            If True, plot the standardized LFP signal for debugging (default is False).
+        render_logo : bool, optional
+            If True, render the logo using the qol package (default is False).
+        shuffle_validation : bool, optional
+            If True, shuffle the validation data during splitting (default is False).
+    *Returns*: None
+
+    --------
+    Notes:
+    - The function saves the trained Keras model to an H5 file with a timestamp.
+    - The function plots the training and validation loss and MSE (Mean Squared Error) after training.
+    """
 
     if render_logo: from qol import render_logo; render_logo()
 
