@@ -173,7 +173,7 @@ def rmse(y_true, y_pred):
     """
     return tf.math.sqrt(tf.reduce_mean(tf.square(y_pred - y_true)))
 
-def spike_inference(spikes_file, lfp_file, lfp_key='Data', spikes_key='spikes_1k', region='NA', samples_ms=20000, lfp_channel=1, debug:bool=False, debug_lfp:bool=False, render_logo=False):
+def spike_inference(spikes_file, lfp_file, lfp_key='Data', spikes_key='spikes_1k', region='NA', samples_ms=20000, lfp_channel=1, debug:bool=False, debug_lfp:bool=False, render_logo=False, shuffle_validation=False):
 
     if render_logo: from qol import render_logo; render_logo()
 
@@ -267,7 +267,7 @@ def spike_inference(spikes_file, lfp_file, lfp_key='Data', spikes_key='spikes_1k
     # 4. Splitting the Dataset: 70% Training, 30% Validation
     # ------------------------------
     X_train, X_val, y_train, y_val = train_test_split(
-        X, y, test_size=0.3, random_state=42, shuffle=False
+        X, y, test_size=0.3, random_state=42, shuffle=shuffle_validation
     )
     if debug:
         print(f"Training set shape: X_train={X_train.shape}, y_train={y_train.shape}")
@@ -357,7 +357,7 @@ def spike_inference(spikes_file, lfp_file, lfp_key='Data', spikes_key='spikes_1k
     plt.show()
 
 if __name__ == "__main__":
-    spike_inference(lfp_channel=65, samples_ms=100000,
+    spike_inference(lfp_channel=65, samples_ms=10000,
                     spikes_file='data/actual_data/patient1/spike_times_set1_1k.mat', spikes_key='spike_times_set1_1k',
                     lfp_file='data/actual_data/patient1/try_sEEG_Data.mat', lfp_key='Data',
-                    region='NA', debug=True, render_logo=True)
+                    region='NA', debug=True, render_logo=True, shuffle_validation=True)
