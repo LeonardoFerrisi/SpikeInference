@@ -26,6 +26,7 @@ elif platform.system() == 'Darwin': # MacOS
     device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
 else:
     device = torch.device('cpu')
+print("Using device:", device)
 
 # ======================================================
 # 1. Load .mat data (ns2 saved formats preferred)
