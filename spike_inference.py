@@ -1,404 +1,413 @@
-import os
 import numpy as np
-import pandas as pd
-import multiprocessing
-import scipy.io as sio
-import time
+import scipy.io
+from scipy.signal import butter, filtfilt, hilbert, find_peaks
+from scipy.ndimage import gaussian_filter1d
 import matplotlib.pyplot as plt
-from scipy.ndimage import gaussian_filter1d
-import sklearn as sk
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from scipy.ndimage import gaussian_filter1d
-from accuracy_metrics import threshold_accuracy, r_squared
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import Dataset, DataLoader
+import platform
+import os
+from utils.visualize import visualize_model
 
-# -------------------- Set Environment Variables --------------------
-os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"  # Disable oneDNN optimizations (optional)
-os.environ["TF_CPP_MIN_LOG_LEVEL"]  = "2"  # Suppress unnecessary TensorFlow logs
-
-# Determine the number of CPU cores available
-num_cores = multiprocessing.cpu_count()
-print("Number of CPU cores available:", num_cores)
-
-# Set CPU parallelism
-os.environ["OMP_NUM_THREADS"] = str(num_cores)
-os.environ["TF_NUM_INTRAOP_THREADS"] = str(num_cores)
-os.environ["TF_NUM_INTEROP_THREADS"] = str(num_cores)
-
-# -------------------- TensorFlow GPU Setup --------------------
-import tensorflow as tf
-from keras.api.models import Sequential
-from keras.api.layers import (
-    Bidirectional, LSTM, Dropout, Dense, LayerNormalization
-)
-from keras.api.optimizers import Adam
-import keras.api.backend as K
-from keras.api.regularizers import l2
-from alive_progress import alive_bar
-
-# Check for available GPUs
-gpus = tf.config.list_physical_devices("GPU")
-if gpus:
-    try:
-        # Enable memory growth to prevent TensorFlow from consuming all GPU memory
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-        print(f"Using GPU: {gpus}")
-    except RuntimeError as e:
-        print(f"GPU setup error: {e}")
+# ======================================================
+# Device configuration for parallel processing. 
+# ======================================================
+if platform.system() == 'Windows':
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+elif platform.system() == 'Linux':
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+elif platform.system() == 'Darwin': # MacOS
+    device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
 else:
-    print("No GPU found, using CPU.")
+    device = torch.device('cpu')
 
-# -------------------- Confirm TensorFlow Setup --------------------
-print("TensorFlow version:", tf.__version__)
-print("Num GPUs Available:", len(tf.config.list_physical_devices('GPU')))
-print("TensorFlow intra-op threads:", tf.config.threading.get_intra_op_parallelism_threads())
-print("TensorFlow inter-op threads:", tf.config.threading.get_inter_op_parallelism_threads())
+# ======================================================
+# 1. Load .mat data (ns2 saved formats preferred)
+# ======================================================
+data_filename = 'ns2eeg_202014.mat' # example file name
 
-# =====================================================================================================
+mat = scipy.io.loadmat(data_filename)
+microwire = mat['ns2_sEEG'][104, :].squeeze()
 
-def create_sequences(signal, labels, window_size, batch_size=10000):
-    """
-    Create sequences from the 1D time series signal.
-    For each window of LFP data, the label is the spike value at the time immediately after the window.
-    """
-    num_samples = signal.shape[1] - window_size
-    X = np.memmap('X_data.dat', dtype=np.float32, mode='w+', shape=(num_samples, window_size, signal.shape[0]))
-    y = np.memmap('y_data.dat', dtype=np.float32, mode='w+', shape=(num_samples,))
-    # X, y = [], []
-    with alive_bar(num_samples, title="Creating sequences") as bar:
-        for i in range(num_samples):
-            X[i] = np.transpose(signal[:, i : i + window_size])  # Transpose to match shape (timesteps, channels)
-            y[i] = labels[i + window_size]  # Label is the spike immediately after the window
-            bar()
-    return X, y
+# Convert LFP data to float (if originally int16)
+microwire = microwire.astype(np.float64)
 
-def load_data(data_path:str, data_key:str='Data', debug:bool=True) -> pd.DataFrame:
-    """
-    Load data from a .mat file and return the data array as a pandas dataframe.
+# Define sampling frequency (Hz)
+fs = 1000.0 # 1 kHz
 
-    @param data_path: Path to the .mat file
-    @param debug: Print debug information
-    @return: Pandas dataframe with the data
-    """
+# ======================================================
+# 2. Plot raw (LFP) data (first 20000 samples)
+# ======================================================
+segment  = slice(0, 20000)  # first 20000 samples for visualization
+time_vec = np.arange(20000) / fs
 
-    # Load the .mat file (adjust the filename as needed)
-    mat_contents = sio.loadmat(data_path)
+plt.figure(figsize=(12, 4))
+plt.plot(time_vec, microwire[segment])
+plt.title("Raw LFP Data")
+plt.xlabel("Time (s)")
+plt.ylabel("Amplitude")
+plt.tight_layout()
+plt.show()
 
-    # List all variable names in the file
-    print(mat_contents.keys())
+# ===========================
+# 3. Process LFP into EEG bands with flexibility
+# ===========================
 
-    # Replace 'data' with the actual variable name stored in your .mat file
-    data_array = mat_contents[data_key]
+# *Helper function to create bandpass filters*
+def bandpass_filter(data, lowcut, highcut, fs, order=3):
+    nyq  = 0.5 * fs
+    low  = lowcut / nyq
+    high = highcut / nyq
+    b, a = butter(order, [low, high], btype='band')
+    return filtfilt(b, a, data)
 
-    # Verify the shape and data type
-    if debug:
-        print("Data loaded from:", data_path)
-        print("Shape:", data_array.shape)
-        print("Data type:", data_array.dtype)
-        print("------------------------------")
+def get_band_envelopes(signal, fs, bands_dict, selected_bands):
+    filtered_signals = {}
+    for band in selected_bands:
+        low, high = bands_dict[band]
+        filtered = bandpass_filter(signal, low, high, fs)
+        analytic_signal = hilbert(filtered)
+        envelope = np.abs(analytic_signal)
+        filtered_signals[band] = envelope
+    eeg_features = np.column_stack([filtered_signals[band] for band in selected_bands])
+    return filtered_signals, eeg_features
 
-    return pd.DataFrame(data_array)
+all_eeg_bands = {
+    'delta': (1, 4),
+    'theta': (4, 8),
+    'alpha': (8, 12),
+    'beta':  (12, 30),
+    'gamma': (30, 100)
+}
+selected_bands = ['delta', 'theta', 'alpha', 'beta', 'gamma']
 
-def get_spike_firing_rate(spikes:pd.DataFrame, window_size:int|float, debug_plot:bool=False) -> pd.DataFrame:
-    """
-    Calculate the spike firing rate from the binary spike array.
+filtered_signals, eeg_features = get_band_envelopes(microwire, fs, all_eeg_bands, selected_bands)
 
-    @param spikes: Binary array of spike events (0 or 1)
-    @param window_size: Size of the window to use for the convolution
-    @return: Spike firing rate array
-    """
-    std = window_size // 4.0 # std deviation of the gaussian
-    spike_firing_rate = gaussian_filter1d(spikes, truncate=4.0, sigma=std)
+# ===========================
+# 4. Plot EEG band envelopes for selected bands
+# ===========================
+num_bands = len(selected_bands)
+fig, axes = plt.subplots(num_bands, 1, figsize=(12, 3 * num_bands), sharex=True)
+for idx, band in enumerate(selected_bands):
+    signal = filtered_signals[band]
+    axes[idx].plot(time_vec, signal[segment])
+    axes[idx].set_title(f'{band.capitalize()} Band Envelope (Hilbert Transform)')
+    axes[idx].set_ylabel("Amplitude")
+axes[-1].set_xlabel("Time (s)")
+plt.tight_layout()
+plt.show()
 
-    if debug_plot: 
-        fig, axs = plt.subplots(2, 1, figsize=(15, 10), sharex=True)
+# ===========================
+# 5. Detect spikes from raw LFP and compute firing rate using Gaussian smoothing
+# ===========================
+def detect_spikes(lfp, fs, lowcut=100, highcut=300, threshold_multiplier=4, refractory_period=0.002):
+    filtered = bandpass_filter(lfp, lowcut, highcut, fs, order=3)
+    noise_std = np.median(np.abs(filtered)) / 0.6745
+    threshold = threshold_multiplier * noise_std
+    min_distance = int(refractory_period * fs)
+    spike_indices, _ = find_peaks(filtered, height=threshold, distance=min_distance)
+    return spike_indices
 
-        # Plot the spike firing rate
-        axs[0].plot(spike_firing_rate, color='blue')
-        axs[0].set_title('Spike Firing Rate')
-        axs[0].set_ylabel('Firing Rate')
-        axs[0].grid()
+spike_indices = detect_spikes(microwire, fs, lowcut=100, highcut=300, threshold_multiplier=3, refractory_period=0.002)
+n_samples = microwire.shape[0]
+spike_train = np.zeros(n_samples)
+spike_train[spike_indices] = 1
+firing_rate = gaussian_filter1d(spike_train, sigma=20)
 
-        # Plot the spikes
-        axs[1].plot(spikes, color='red')
-        axs[1].set_title('Spikes')
-        axs[1].set_xlabel('Time (ms)')
-        axs[1].set_ylabel('Spikes')
-        axs[1].grid()
+# ===========================
+# 6. Plot the Gaussian-smoothed firing rate (first 20000 samples)
+# ===========================
+plt.figure(figsize=(12, 4))
+plt.plot(time_vec, firing_rate[segment])
+plt.title("Firing Rate (Gaussian-smoothed from Derived Spikes)")
+plt.xlabel("Time (s)")
+plt.ylabel("Firing Rate")
+plt.tight_layout()
+plt.show()
 
-        plt.tight_layout()
-        plt.show()
+# ===========================
+# 7. Create sliding windows for the dataset
+# ===========================
+window_size = 2000  # number of time steps per window
+step_size = 400     # step size between windows
+
+def create_sliding_windows(features, target, window_size, step_size):
+    X, y = [], []
+    for start in range(0, len(features) - window_size + 1, step_size):
+        end = start + window_size
+        X.append(features[start:end])
+        y.append(target[start:end])
+    return np.array(X), np.array(y)
+
+X, y = create_sliding_windows(eeg_features, firing_rate, window_size, step_size)
+
+# ===========================
+# 8. Data Resampling/ Balancing
+# ===========================
+# Define parameters for resampling
+non_spike_keep_ratio = 0.2  # keep only 20% of windows with low spiking activity
+spike_threshold = 0.01      # threshold to consider a window as containing spike activity
+
+indices = np.arange(len(y))
+# Identify windows with spike activity based on max value in the window
+spike_window_indices = indices[np.max(y, axis=1) >= spike_threshold]
+null_window_indices  = indices[np.max(y, axis=1) < spike_threshold]
+
+# Randomly sample a fraction of the null windows
+if len(null_window_indices) > 0:
+    sampled_null_indices = np.random.choice(null_window_indices, 
+                                            size=int(len(null_window_indices) * non_spike_keep_ratio),
+                                            replace=False)
+else:
+    sampled_null_indices = np.array([])
+
+balanced_indices = np.concatenate([spike_window_indices, sampled_null_indices])
+np.random.shuffle(balanced_indices)
+
+X_balanced = X[balanced_indices]
+y_balanced = y[balanced_indices]
+
+# ===========================
+# 9. Define custom PyTorch Dataset using the balanced data and split into train/val/test sets
+# ===========================
+class EEGDataset(Dataset):
+    def __init__(self, X, y):
+        self.X = torch.tensor(X, dtype=torch.float32)
+        self.y = torch.tensor(y, dtype=torch.float32).unsqueeze(-1)
     
-    return spike_firing_rate
+    def __len__(self):
+        return len(self.X)
+    
+    def __getitem__(self, idx):
+        return self.X[idx], self.y[idx]
 
-def clean_up_memmap_files(X_memmap, y_memmap, delete_files=True):
-    """
-    Clean up memory-mapped files.
+N = len(X_balanced)
+train_end = int(0.7  * N)
+val_end   = int(0.85 * N)
+
+train_dataset = EEGDataset(X_balanced[:train_end], y_balanced[:train_end])
+val_dataset   = EEGDataset(X_balanced[train_end:val_end], y_balanced[train_end:val_end])
+test_dataset  = EEGDataset(X_balanced[val_end:], y_balanced[val_end:])
+
+train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+val_loader   = DataLoader(val_dataset, batch_size=64, shuffle=False)
+test_loader  = DataLoader(test_dataset, batch_size=64, shuffle=False)
+
+# ===========================
+# 10. Define the 3-layer BiLSTM model with dropout
+# ===========================
+class StackedBiLSTMModel(nn.Module):
+    def __init__(self, input_size, dropout=0.0):
+        super(StackedBiLSTMModel, self).__init__()
+        self.lstm1    = nn.LSTM(input_size=input_size,
+                             hidden_size=128,
+                             num_layers=1,
+                             bidirectional=True,
+                             batch_first=True)
+        self.dropout1 = nn.Dropout(dropout)
+        self.lstm2    = nn.LSTM(input_size=128*2,
+                             hidden_size=64,
+                             num_layers=1,
+                             bidirectional=True,
+                             batch_first=True)
+        self.dropout2 = nn.Dropout(dropout)
+        self.lstm3    = nn.LSTM(input_size=64*2,
+                             hidden_size=32,
+                             num_layers=1,
+                             bidirectional=True,
+                             batch_first=True)
+        self.dropout3 = nn.Dropout(dropout)
+        self.fc       = nn.Linear(32*2, 16)
+        self.relu     = nn.ReLU()
+        self.fc2      = nn.Linear(16, 1)
     
-    Parameters:
-    X_memmap: The memory-mapped X data
-    y_memmap: The memory-mapped y data
-    delete_files: Whether to delete the underlying files from disk
-    """
-    # Close the memmap objects to ensure all changes are written to disk
-    if hasattr(X_memmap, '_mmap') and X_memmap._mmap is not None:
-        X_memmap._mmap.close()
-    
-    if hasattr(y_memmap, '_mmap') and y_memmap._mmap is not None:
-        y_memmap._mmap.close()
-    
-    # Delete the files if requested
-    if delete_files:
-        import os
-        if os.path.exists('X_data.dat'):
-            os.remove('X_data.dat')
-            print("Deleted X_data.dat")
+    def forward(self, x):
+        out, _ = self.lstm1(x)
+        out    = self.dropout1(out)
+        out, _ = self.lstm2(out)
+        out    = self.dropout2(out)
+        out, _ = self.lstm3(out)
+        out    = self.dropout3(out)
+        out    = self.fc(out)
+        out    = self.relu(out)
+        out    = self.fc2(out)
+        return out
+
+# Suggestions:
+# TODO: Attention layer to focus on bands that are the most useful
+# --> Would output attention values for each band
+
+input_size = eeg_features.shape[1]
+model = StackedBiLSTMModel(input_size, dropout=0.2).to(device)  # move model to device
+criterion = nn.MSELoss()
+optimizer = optim.Adam(model.parameters(), lr=1e-4)
+
+# ===========================
+# 11. Training loop with standard MSE loss and loss tracking
+# ===========================
+num_epochs = 30
+train_losses, val_losses = [], []
+
+for epoch in range(num_epochs):
+    model.train()
+    epoch_train_loss = 0.0
+    for batch_X, batch_y in train_loader:
+        batch_X = batch_X.to(device)
+        batch_y = batch_y.to(device)
         
-        if os.path.exists('y_data.dat'):
-            os.remove('y_data.dat')
-            print("Deleted y_data.dat")
-
-def rmse(y_true, y_pred):
-    """
-    Calculates the Root Mean Squared Error between y_true and y_pred using TensorFlow operations.
-
-    Parameters:
-    y_true (tensor): True target values.
-    y_pred (tensor): Predicted values.
-
-    Returns:
-    tensor: The root mean squared error.
-    """
-    return tf.math.sqrt(tf.reduce_mean(tf.square(y_pred - y_true)))
-
-def spike_inference(spikes_file, lfp_file, lfp_key='Data', spikes_key='spikes_1k', region='NA', samples_ms=20000, lfp_channel=1, debug:bool=False, debug_lfp:bool=False, render_logo=False, shuffle_validation=False):
-    """
-    Perform spike inference using LFP (Local Field Potential) data and spike times.
-    This function loads spike and LFP data, preprocesses the data, standardizes the signals,
-    creates sequences for LSTM (Long Short-Term Memory) model training, builds and trains
-    a bidirectional LSTM model, and plots the training history.
+        optimizer.zero_grad()
+        outputs = model(batch_X)
+        loss = criterion(outputs, batch_y)
+        loss.backward()
+        optimizer.step()
+        epoch_train_loss += loss.item() * batch_X.size(0)
+    epoch_train_loss /= len(train_loader.dataset)
+    train_losses.append(epoch_train_loss)
     
-    Parameters:
-        spikes_file : str
-            Path to the file containing spike times data.
-        lfp_file : str
-            Path to the file containing LFP data.
-        lfp_key : str, optional
-            Key to access LFP data within the file (default is 'Data').
-        spikes_key : str, optional
-            Key to access spike times data within the file (default is 'spikes_1k').
-        region : str, optional
-            Region of interest (default is 'NA').
-        samples_ms : int, optional
-            Number of samples in milliseconds to use for testing (default is 20000).
-        lfp_channel : int, optional
-            LFP channel to use for analysis (default is 1).
-        debug : bool, optional
-            If True, print debug information (default is False).
-        debug_lfp : bool, optional
-            If True, plot the standardized LFP signal for debugging (default is False).
-        render_logo : bool, optional
-            If True, render the logo using the qol package (default is False).
-        shuffle_validation : bool, optional
-            If True, shuffle the validation data during splitting (default is False).
-    *Returns*: None
-
-    --------
-    Notes:
-    - The function saves the trained Keras model to an H5 file with a timestamp.
-    - The function plots the training and validation loss and MSE (Mean Squared Error) after training.
-    """
-
-    if render_logo: from qol import render_logo; render_logo()
-
-    # ------------------------------
-    # 1. Data Loading and Preprocessing
-    # ------------------------------
-    #   Load the spikes data
-    if debug: print("------------------------------------\nLoading data:\n")
-    spikes_1k_df  = load_data(spikes_file, data_key=spikes_key)
-    #   **Where spikes_1k_df is a 132x4983702 array, where there are 132 channels and 4983702 time points
-
-    sEEG_df       = load_data(lfp_file, data_key=lfp_key)
-
-    #   Convert spike_times into a gaussian firing rate ---------------------------
-    spikes_times = spikes_1k_df.values[0]
-
-    #   Create logical array of size (1, lfp.shape[1]) of zeros
-    # ms_buffer = 1000 # 1s buffer after last timestamp
-
-    spikes_times = np.round(spikes_times).astype(np.int32) # Convert to int for indexing
-
-    spikes = np.zeros(len(sEEG_df.values[0]))
-
-    #   For each spike time in spike_times, set that index in spikes to 1
-    for spike_time in spikes_times:
-        spikes[spike_time] = 1
+    model.eval()
+    epoch_val_loss = 0.0
+    with torch.no_grad():
+        for batch_X, batch_y in val_loader:
+            batch_X = batch_X.to(device)
+            batch_y = batch_y.to(device)
+            outputs = model(batch_X)
+            loss = criterion(outputs, batch_y)
+            epoch_val_loss += loss.item() * batch_X.size(0)
+    epoch_val_loss /= len(val_loader.dataset)
+    val_losses.append(epoch_val_loss)
     
-    spikes_firing_rate = get_spike_firing_rate(spikes, window_size=10000, debug_plot=False)
+    print(f"Epoch {epoch+1}/{num_epochs}: Train Loss {epoch_train_loss:.7f}, Val Loss {epoch_val_loss:.7f}")
 
-    if debug: print("------------------------------------\n")
+plt.figure(figsize=(8, 5))
+plt.plot(range(1, num_epochs+1), train_losses, label="Train Loss")
+plt.plot(range(1, num_epochs+1), val_losses, label="Validation Loss")
+plt.xlabel("Epoch")
+plt.ylabel("Loss (MSE)")
+plt.title("Training and Validation Loss")
+plt.legend()
+plt.tight_layout()
+plt.show()
 
-    # ------------------------------
-    # 2. Standardize Signals
-    # ------------------------------
-    # Handle LFP
-    # sEEG_df is a 132x4983702 array, where each row is a channel and each column is a time point.
-    # For initial testing, use only a subset of the data.
-    # max_samples = sEEG_df.shape[1]
-    max_samples = samples_ms  # Use a subset of samples for testing
-    num_channels = 1  # Use a subset of channels for testing (max of 132)
+# ===========================
+# 12. Evaluate on the test set and calculate percent NMSE (using standard MSE)
+# ===========================
+model.eval()
+test_loss = 0.0
+all_preds = []
+all_targets = []
 
-    # TODO: UPDATE: We dont actually know which is the nearest LFP sEEG contact point on the electrode. Using the first one for now...
-    
-    # Standardize each channel (axis=1) using StandardScaler:
-    # Initialize 1D array for the single channel
-    lfp = sEEG_df.values[lfp_channel, :max_samples].astype(np.float32)
-    
-    # Standardize the 1D signal
-    scaler_lfp = StandardScaler()
-    lfp = scaler_lfp.fit_transform(lfp.reshape(-1, 1)).ravel()
-    
-    # Reshape to (1, samples) to maintain expected dimensions for later processing
-    lfp = lfp.reshape(1, -1)
-    
-    # Plotting standardized LFP signal as a sanity check
-    if debug_lfp:
-        plt.figure(figsize=(10, 4))
-        for i in range(1):
-            plt.plot(lfp[i, :1000], label=f'Channel {i+1}')  # Plot first 1000 samples
-        plt.title('Standardized LFP Signal')
-        plt.xlabel('Time (samples)')
-        plt.ylabel('Amplitude (standardized)')
-        plt.legend()
-        plt.grid(True)
-        plt.tight_layout()
-        plt.show()
+with torch.no_grad():
+    for batch_X, batch_y in test_loader:
+        batch_X = batch_X.to(device)
+        batch_y = batch_y.to(device)
+        outputs = model(batch_X)
+        loss = (outputs - batch_y)**2
+        test_loss += loss.mean().item() * batch_X.size(0)
+        all_preds.append(outputs.cpu().numpy())
+        all_targets.append(batch_y.cpu().numpy())
 
-    # Standardize spikes firing rate signal
-    spikes_firing_rate = spikes_firing_rate[:max_samples].astype(np.float32)
-    scaler_spikes = StandardScaler()
-    spikes_standardized = scaler_spikes.fit_transform(spikes_firing_rate.reshape(-1, 1)).ravel()
-            
-    # ------------------------------
-    # 3. Creating Sequences for the LSTM
-    # ------------------------------
-    window_size = 50  # window size in timesteps
-    X, y = create_sequences(lfp, spikes_standardized, window_size)
-    
-    # Reshape X to (samples, timesteps, features)
-    if debug:
-        print("Before reshaping:")
-        print(f"X shape: {X.shape}, Expected: (num_samples, {window_size}, {num_channels})")
-        print(f"y shape: {y.shape}, Expected: (num_samples,)")
-    X = X.reshape(-1, window_size, num_channels)
-    if debug:
-        print("After reshaping:")
-        print(f"X shape: {X.shape}")
-        print(f"y shape: {y.shape}")
+test_loss /= len(test_loader.dataset)
+print(f"Test MSE Loss: {test_loss:.7f}")
 
-    # ------------------------------
-    # 4. Splitting the Dataset: 70% Training, 30% Validation
-    # ------------------------------
-    X_train, X_val, y_train, y_val = train_test_split(
-        X, y, test_size=0.3, random_state=42, shuffle=shuffle_validation
-    )
-    if debug:
-        print(f"Training set shape: X_train={X_train.shape}, y_train={y_train.shape}")
-        print(f"Validation set shape: X_val={X_val.shape}, y_val={y_val.shape}")
-                          
-    # ------------------------------
-    # 5. Building the Bidirectional LSTM Model for Regression
-    # ------------------------------
-    input_timesteps = X_train.shape[1]
-    input_features = X_train.shape[2]
-    # Create a more robust model with better regularization
-    model = Sequential([
-        # First Bidirectional LSTM layer with LayerNormalization followed by dropout
-        Bidirectional(LSTM(64, return_sequences=True), input_shape=(input_timesteps, input_features)),
-        LayerNormalization(),
-        Dropout(0.3),
-        
-        # Second Bidirectional LSTM layer with LayerNormalization followed by dropout
-        Bidirectional(LSTM(64, return_sequences=False)),
-        LayerNormalization(),
-        Dropout(0.3),
-            
-        # Final Dense layer for regression (predicting a continuous value)
-        Dense(1, activation='linear')
-    ])
-    
-    # Use a lower learning rate for better convergence
-    optimizer = Adam(learning_rate=0.00005)
+all_preds = np.concatenate(all_preds, axis=0)
+all_targets = np.concatenate(all_targets, axis=0)
 
-    time_start_model = time.time()
-    model.compile(
-        loss='mean_squared_error',
-        optimizer=optimizer,
-        metrics=['mse', rmse, r_squared, 'mae']
-    )
-    model.summary()
-    time_end_model = time.time()
-    print(f"Model building time: {time_end_model - time_start_model} seconds")
-    
-    # ------------------------------
-    # 6. Training the Model
-    # ------------------------------
-    time_start_training = time.time()
-    history = model.fit(
-        X_train, y_train,
-        validation_data=(X_val, y_val),
-        epochs=50,         # Adjust the number of epochs as needed
-        batch_size=10,     # Adjust batch size as needed
-        verbose=1
-    )
-    time_end_training = time.time()
-    print(f"Model training time: {time_end_training - time_start_training} seconds")
-    
-    # Save the Keras model to an H5 file with a timestamp
-    from datetime import datetime
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-    os.makedirs("models", exist_ok=True)
-    keras_model_path = f"models/spike_inference_model_{timestamp}.h5"
-    model.save(keras_model_path)
-    print(f"Keras model saved to {keras_model_path}")
+all_preds_flat = all_preds.flatten()
+all_targets_flat = all_targets.flatten()
 
-    # Clean up memory mapped files after model is trained
-    clean_up_memmap_files(X, y, delete_files=True)
+mse_value = np.mean((all_targets_flat - all_preds_flat)**2)
+nmse_value = mse_value / np.var(all_targets_flat)
+percent_nmse = nmse_value * 100
+print(f"Percent NMSE: {percent_nmse:.2f}%")
 
-    # ------------------------------
-    # 7. Plotting Training History
-    # ------------------------------
-    print(f"History keys are: {history.history.keys()}")
-    plt.figure(figsize=(10, 5))
-    plt.plot(history.history['loss'], label='Training Loss', color='blue')
-    plt.plot(history.history['val_loss'], label='Validation Loss', color='red')
-    plt.xlabel('Epochs')
-    plt.ylabel('Loss')
-    plt.title('Training & Validation Loss')
-    plt.legend()
-    plt.grid()
-    plt.show()
-    
-    plt.figure(figsize=(10, 5))
-    plt.plot(history.history['mse'], label='Training MSE', color='blue')
-    plt.plot(history.history['val_mse'], label='Validation MSE', color='red')
-    plt.xlabel('Epochs')
-    plt.ylabel('MSE')
-    plt.title('Training & Validation MSE')
-    plt.legend()
-    plt.grid()
-    plt.show()
+# ===========================
+# 13. Continuous Prediction vs. Actual for first 20000 samples
+# ===========================
+N_cont = 20000  # first 20000 samples for continuous prediction
 
-if __name__ == "__main__":
-    spike_inference(lfp_channel = 65, 
-                    samples_ms  = 10000,
-                    spikes_file = 'data/actual_data/patient1/spike_times_set1_1k.mat', 
-                    spikes_key  = 'spike_times_set1_1k',
-                    lfp_file    = 'data/actual_data/patient1/try_sEEG_Data.mat', 
-                    lfp_key     = 'Data',
-                    region      = 'NA', 
-                    debug       = True, 
-                    render_logo = True, 
-                    shuffle_validation = True)
+# Create overlapping windows (step size 1) from the first N_cont samples
+windows = []
+for i in range(0, N_cont - window_size + 1):
+    windows.append(eeg_features[i:i+window_size])
+windows = np.array(windows)
+print("Continuous windows shape:", windows.shape)
+
+from torch.utils.data import TensorDataset
+windows_tensor = torch.tensor(windows, dtype=torch.float32)
+cont_dataset = TensorDataset(windows_tensor)
+cont_loader = DataLoader(cont_dataset, batch_size=64, shuffle=False)
+
+model.eval()
+predictions = []
+with torch.no_grad():
+    for (batch_X,) in cont_loader:
+        batch_X = batch_X.to(device)
+        batch_pred = model(batch_X)  # shape: (batch, window_size, 1)
+        predictions.append(batch_pred.squeeze(-1).cpu().numpy())
+predictions = np.concatenate(predictions, axis=0)
+print("Predictions shape:", predictions.shape)
+
+# Aggregate overlapping predictions to compute a continuous predicted signal
+aggregate_pred = np.zeros(N_cont)
+count_pred = np.zeros(N_cont)
+num_windows = predictions.shape[0]
+
+for i in range(num_windows):
+    aggregate_pred[i:i+window_size] += predictions[i]
+    count_pred[i:i+window_size] += 1
+
+continuous_pred = aggregate_pred / count_pred
+
+plt.figure(figsize=(12, 6))
+plt.plot(time_vec, firing_rate[:N_cont], label="Actual Firing Rate")
+plt.plot(time_vec, continuous_pred, label="Predicted Firing Rate", linestyle="--")
+plt.xlabel("Time (s)")
+plt.ylabel("Firing Rate")
+plt.title("Continuous Prediction vs Actual (First 20000 Samples)")
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# ========================================
+# 14. Save the model
+# ========================================
+import datetime
+model_save_path = 'models'+os.sep+f"stacked_bilstm_model_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pth"
+torch.save(model.state_dict(), model_save_path)
+print(f"Model saved to {model_save_path}")
+
+# =============================
+# 15. Visualize the model architecture
+# =============================
+dummy_model = StackedBiLSTMModel(input_size=input_size, dropout=0.2).to(device)
+dummy_model.eval()
+visualize_model(model=dummy_model, input_size=5, device=device)
+
+# ========================================
+# 16. Generate Stats
+# ========================================
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import ttest_ind
+
+# RMSE values (from indices)
+hippocampus   = np.array([171, 284, 56, 276, 260, 482, 329, 107])
+orbitofrontal = np.array([111, 61, 96, 108, 87, 79, 91, 70])
+
+# Create a boxplot
+data = [hippocampus, orbitofrontal]
+labels = ['Hippocampus', 'Orbitofrontal Cortex']
+
+plt.boxplot(data, labels=labels)
+plt.title('Normalized RMSE Comparison')
+plt.ylabel('Normalized RMSE (Percentage)')
+plt.show()
+
+# Perform an independent two-sample t-test
+t_stat, p_value = ttest_ind(hippocampus, orbitofrontal)
+print("T-test results:")
+print(f"t-statistic = {t_stat:.3f}")
+print(f"p-value = {p_value:.3f}")
+
