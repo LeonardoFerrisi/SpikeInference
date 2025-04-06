@@ -9,28 +9,27 @@ Data is stored within the `data` folder in the following format
 
     data/
     │   .gitkeep
-    │   fake_lfp_data.csv
-    │   fake_lfp_data1.csv
-    │   tree.txt
-    │   
-    └───actual_data/
-        │   electrode.mat
-        │   spikes_1k.mat
-        │   spikes_30k.mat
-        │   try_sEEG_Data.mat
-        │   try_spikes_Data.mat
-        │   unit.mat
-        │   waveform.mat
-        │   
-        └───patient1/
-                indices_set1.mat
-                indices_set2.mat
-                spikes_set2_1k.mat
-                spike_times_set1_1k.mat
-                spike_times_set1_30k.mat
-                spike_times_set2_30k.mat
-                try_sEEG_Data.mat
+    │
+    ├───patients
+    │   ├───202014
+    │   │       ns2eeg_202014.mat
+    │   │
+    │   ├───202016
+    │   │       ns2eeg_202016.mat
+    │   │
+    │   └───202202
+    │           ns2eeg_202202.mat
+    │
+    └───results
+            seeg_results.csv
 
+# Note
+
+`seeg_results.csv` contains manually recorded values from running each of all 8 microwires per [Behnke Fried/Micro Inner Wire Bundle Electrodes](https://adtechmedical.com/sites/default/files/inline-files/AT10036-1-B%2C%20Rev.%20E%20BF%20and%20WB%20Depth%20Electrodes%20%28EU%29.pdf) (described as micro-contacts in documentation)
+
+Each row per region represents a single micro-contact. 
+
+TODO: Add indices required, preferably automate the training on Hippocampus and OFC using information on patient data. [Private for HIPPA reasons]
 
 # IMPORTANT
 
