@@ -1,2 +1,5 @@
 .venv
 data/actual_data/*
+data/patients/*
+*.mat
+__pycache__

@@ -10,13 +10,17 @@ from torch.utils.data import Dataset, DataLoader
 import platform
 import os
 from utils.visualize import visualize_model
+from utils.qol import render_logo, get_filepath
+
+# ========================================
+# Quality-Of-Life: Render logo
+# ========================================
+render_logo()
 
 # ======================================================
 # Device configuration for parallel processing. 
 # ======================================================
-if platform.system() == 'Windows':
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-elif platform.system() == 'Linux':
+if platform.system() == 'Windows' or platform.system() == 'Linux':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 elif platform.system() == 'Darwin': # MacOS
     device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
@@ -26,7 +30,7 @@ else:
 # ======================================================
 # 1. Load .mat data (ns2 saved formats preferred)
 # ======================================================
-data_filename = 'ns2eeg_202014.mat' # example file name
+data_filename = get_filepath(['data', 'patients', '202014', 'ns2_sEEG.mat']) # example file path
 
 mat = scipy.io.loadmat(data_filename)
 microwire = mat['ns2_sEEG'][104, :].squeeze()
@@ -383,7 +387,8 @@ print(f"Model saved to {model_save_path}")
 # =============================
 dummy_model = StackedBiLSTMModel(input_size=input_size, dropout=0.2).to(device)
 dummy_model.eval()
-visualize_model(model=dummy_model, input_size=5, device=device)
+output_img_filepath = get_filepath(['plots','model_architecture','stacked_bilstm_architecture.png'])
+visualize_model(model=dummy_model, input_size=5, device=device, output_filepath=output_img_filepath)
 
 # ========================================
 # 16. Generate Stats

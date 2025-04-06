@@ -1,3 +1,5 @@
+import os
+
 def render_logo():
     
     text = r"""
@@ -11,3 +13,12 @@ def render_logo():
       |_|                                                                 
     """
     print(text)
+
+def get_filepath(elements:list) -> str:
+    
+    full_filepath = ''
+    for element in elements[:-1]:
+        full_filepath += element + os.sep
+    full_filepath += elements[-1]
+
+    return full_filepath

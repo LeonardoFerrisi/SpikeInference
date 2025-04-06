@@ -33,19 +33,16 @@ The LSTM model is initially trained on LFP data from the left hippocampus. Its p
 - **ACC, OFC, and Amygdala:** To test regional generalizability.
 
 ## Repository Structure
+    ├── .old/                 # Depricated Code
     ├── data/                 # Data Directory
     ├── plotting/             # Plots Directory
     ├── utils/                # Utils Directory
-    ├   ├── fft.py                        # Plot a FFT of data (confirm main frequencies)
-    ├   ├── generate_fake_data.py         # Generate LFP and spike data for proof-of-concept
-    ├   ├── data_gen_and_validation.ipynb # Demonstrate Data Gen and Verify signal
-    ├   └── plot_lfp_data.py              # Plots the generated LFP data and spikes 
-    ├── README.md             # This file 
+    ├   ├── qol.py            # (optional) render logo
+    ├   └── visualize.py      # Plots the model architecture
+    ├── README.md             # *This file* 
     ├── requirements.txt      # Python package requirements 
     ├── spike_inference.py    # for data loading, model training, and evaluation 
-    ├── spike_inference.ipynb # for data loading, model training, and evaluation - but as a python notebook
-    └── utils.py              # Utility functions 
-
+    └── spike_inference.ipynb # for data loading, model training, and evaluation - but as a python notebook
 
 ## Setup and Installation
 
@@ -76,6 +73,10 @@ On Windows:
 ```bash
 pip install -r requirements.txt
 ```
+
+#### a. Install CUDA if on Windows
+
+Review the following for more detailed instructions on setting up your machine to use GPU for operation: https://medium.com/thesecmaster/step-by-step-guide-to-setup-pytorch-for-your-gpu-on-windows-10-11-524d58cf2744
 
 ## Running the Code:
 

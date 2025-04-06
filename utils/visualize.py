@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 from torchviz import make_dot
+import os
 
-
-def visualize_model(model:nn.Module, input_size:int, device:torch.device):
+def visualize_model(model:nn.Module, input_size:int, device:torch.device, output_filepath:str='model_architecture.png'):
     """
     Visualize a model architecture using torchviz.
 
@@ -18,11 +18,12 @@ def visualize_model(model:nn.Module, input_size:int, device:torch.device):
 
     try:
         graph = make_dot(output, params=dict(model.named_parameters()))
-        graph.render("stacked_bilstm_architecture", format="png", cleanup=True)
-        print("Model architecture visualization saved as 'stacked_bilstm_architecture.png'.")
+        filename = output_filepath.split(os.sep)[-1].split(".")[0]
+        graph.render(filename, format="png", cleanup=True)
+        print(f"Model architecture visualization saved as '{output_filepath}'")
 
         import matplotlib.image as mpimg
-        img = mpimg.imread("stacked_bilstm_architecture.png")
+        img = mpimg.imread(output_filepath)
         plt.figure(figsize=(12, 12))
         plt.imshow(img)
         plt.axis("off")
